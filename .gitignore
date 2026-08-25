@@ -1,0 +1,51 @@
+# -----------------------------------------------------------------------------
+# Build artifacts (MCUXpresso / GCC ARM)
+# -----------------------------------------------------------------------------
+**/Debug/
+**/Release/
+**/RAM/
+**/FLASH/
+
+# Object and dependency files
+*.o
+*.d
+*.su
+*.lst
+*.map
+
+# Binary outputs
+*.axf
+*.elf
+*.bin
+*.hex
+*.srec
+
+# Linker / tool temporary outputs
+*.crf
+*.tmp
+*.bak
+
+# -----------------------------------------------------------------------------
+# Eclipse / MCUXpresso local metadata (machine-specific)
+# -----------------------------------------------------------------------------
+.metadata/
+
+# Local launch/debug session files (optional to share; ignored by default)
+*.launch
+
+# Internal IDE state
+.recommenders/
+
+# -----------------------------------------------------------------------------
+# VS Code local settings
+# -----------------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# -----------------------------------------------------------------------------
+# OS files
+# -----------------------------------------------------------------------------
+Thumbs.db
+.DS_Store
