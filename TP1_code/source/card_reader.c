@@ -11,7 +11,7 @@ static pin_t enable;
 void enable_IRQHandler(void);
 void clock_IRQHandler(void);
 
-void card_reader_INIT(pin_t enablePin, pin_t clockPin, pin_t dataPin)
+bool card_reader_INIT(pin_t enablePin, pin_t clockPin, pin_t dataPin)
 {
 	gpioMode(enablePin, INPUT);
 	gpioMode(clockPin, INPUT);
@@ -20,13 +20,19 @@ void card_reader_INIT(pin_t enablePin, pin_t clockPin, pin_t dataPin)
 	data = dataPin;
 	enable = enablePin;
 
-	gpioIRQ(enablePin, GPIO_IRQ_MODE_BOTH_EDGES, enable_IRQHandler);
-	gpioIRQ(clockPin, GPIO_IRQ_MODE_FALLING_EDGE, clock_IRQHandler);
-
+	bool enable_flag = gpioIRQ(enablePin, GPIO_IRQ_MODE_BOTH_EDGES, enable_IRQHandler);
+	bool clock_flag = gpioIRQ(clockPin, GPIO_IRQ_MODE_FALLING_EDGE, clock_IRQHandler);
 
 	bitCount = 0;
 	reading = false;
 	dataReady = false;
+
+	if(!enable_flag || !clock_flag)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 bool data_ready(void)

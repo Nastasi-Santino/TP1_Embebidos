@@ -15,7 +15,7 @@
  * FUNCTION PROTOTYPES WITH GLOBAL SCOPE
  ******************************************************************************/
 
-void card_reader_INIT(pin_t enablePin, pin_t clockPin, pin_t dataPin);
+bool card_reader_INIT(pin_t enablePin, pin_t clockPin, pin_t dataPin);
 
 bool data_ready(void);
 
