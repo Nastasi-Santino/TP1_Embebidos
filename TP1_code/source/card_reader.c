@@ -1,6 +1,6 @@
 #include "card_reader.h"
 
-static volatile uint32_t dataBuffer[7] = {0};
+static volatile uint8_t dataBuffer[250] = {0};
 static volatile uint8_t bitCount;
 static volatile bool reading;
 static volatile bool dataReady;
@@ -45,14 +45,14 @@ uint8_t get_data_length(void)
 	return bitCount;
 }
 
-uint32_t * get_data(void)
+const volatile uint8_t * get_data(void)
 {
 	return dataBuffer;
 }
 
 void enable_IRQHandler(void)
 {
-	if(!gpioRead(enable))
+	if(gpioRead(enable))
 	{
 		reading = false;
 		dataReady = true;
@@ -61,27 +61,15 @@ void enable_IRQHandler(void)
 		reading = true;
 		dataReady = false;
 		bitCount = 0;
-
-        for(uint8_t i = 0; i < 7; i++)
-        {
-            dataBuffer[i] = 0;
-        }
 	}
 
 }
 
 void clock_IRQHandler(void)
 {
-	if(reading)
+	if(reading && (bitCount < 250))
 	{
-		if(bitCount < 224)
-		{
-			if(gpioRead(data))
-			{
-				dataBuffer[bitCount>>5] |= (1U << (bitCount & 0x1F));
-			}
-
-			bitCount++;
-		}
+		dataBuffer[bitCount] = gpioRead(data);
+		bitCount++;
 	}
 }
