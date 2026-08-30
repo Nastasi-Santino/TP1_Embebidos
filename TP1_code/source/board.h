@@ -24,19 +24,33 @@
 #define PIN_LED_RED     PORTNUM2PIN(PB,22)// PTB22
 #define PIN_LED_GREEN   PORTNUM2PIN(PE,26)// PTE26
 #define PIN_LED_BLUE    PORTNUM2PIN(PB,21) // PTB21
-#define PIN_LED_YELLOW 	PORTNUM2PIN(PB,23) // PTB23 (Externo)
 
 #define LED_ACTIVE      HIGH
-#define RGB_ACTIVE		LOW
 
 
 // On Board User Switches
 #define PIN_SW2         PORTNUM2PIN(PC, 6)// PTC6
 #define PIN_SW3         PORTNUM2PIN(PA, 4)// PTA4
-#define PIN_SW_EXT		PORTNUM2PIN(PC, 9)// PTC9
+
 
 #define SW_ACTIVE       LOW
 #define SW_INPUT_TYPE   INPUT_PULLUP
+
+// Card Reader
+#define PIN_CR_ENABLE	PORTNUM2PIN(PD, 1)
+#define PIN_CR_CLOCK	PORTNUM2PIN(PD, 3)
+#define PIN_CR_DATA		PORTNUM2PIN(PD, 2)
+
+// Encoder
+#define PIN_SW_ENCODER	PORTNUM2PIN(PC, 11)
+#define PIN_A_ENCODER	PORTNUM2PIN(PB, 18)
+#define PIN_B_ENCODER	PORTNUM2PIN(PC, 10)
+
+// Serial to Display
+#define PIN_SERIAL		PORTNUM2PIN(PB, 11)
+#define PIN_SCLK		PORTNUM2PIN(PB, 2)
+#define PIN_RCLK		PORTNUM2PIN(PB, 3)
+#define PIN_OE			PORTNUM2PIN(PB, 10)
 
 
 /*******************************************************************************
