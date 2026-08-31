@@ -15,7 +15,7 @@ static bool check_odd_parity(uint8_t val, bool parity_bit)
     
     if (parity_bit) ones++;
     
-    return (ones % 2) != 0; 
+    return ((ones & 0x01) == 0x01);
 }
 
 bool decode_card_id(const uint8_t *raw_data, uint8_t total_bits, uint8_t *id_out) 

@@ -6,8 +6,8 @@
 #define PIN_B_ENCODER	PORTNUM2PIN(PC, 10)
 
 #define BUTTON_PERIOD_MS        50U
-#define ENCODER_PERIOD_MS		5U
-#define ENCODER_COUNTER			5
+#define ENCODER_PERIOD_MS		3U
+#define ENCODER_COUNTER			3
 
 #define PISR_MS_TO_TICKS(ms) \
     (((ms) * 1000U) / PISR_TICK_US)

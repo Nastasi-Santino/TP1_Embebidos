@@ -73,7 +73,7 @@ void clock_IRQHandler(void)
 {
 	if(reading && (bitCount < 250))
 	{
-		dataBuffer[bitCount] = gpioRead(PIN_CR_DATA);
+		dataBuffer[bitCount] = !gpioRead(PIN_CR_DATA);
 		bitCount++;
 	}
 }

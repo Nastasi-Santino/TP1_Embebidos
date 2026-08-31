@@ -20,7 +20,7 @@
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
 
-#define COLOR GREEN
+#define COLOR RED
 #define SWITCH 2
 
 #define CONCAT_IMPL(a, b) a##b
@@ -68,6 +68,16 @@ void App_Init (void)
 	card_reader_INIT();
 	encoder_INIT();
 
+	// DEBUG
+	gpioMode(PIN_LED_RED, OUTPUT);
+	gpioMode(PIN_LED_GREEN, OUTPUT);
+	gpioMode(PIN_LED_BLUE, OUTPUT);
+
+	gpioWrite(PIN_LED_RED, !LED_ACTIVE);
+	gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
+	gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
+
+
 }
 
 
@@ -75,6 +85,50 @@ void App_Init (void)
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
+	/*
+	static volatile uint8_t data_test[250];
+	if(data_ready())
+	{
+		for(int i = 0; i < get_data_length(); i++)
+		{
+			data_test[i] = get_data()[i];
+		}
+		gpioToggle(PIN_RGB);
+	}
+	*/
+
+	/*
+	if(encoderMoved())
+	{
+		if(encoderDir() == IS_RIGHT)
+		{
+			gpioWrite(PIN_LED_RED, LED_ACTIVE);
+			gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
+			gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
+		} else
+		{
+			gpioWrite(PIN_LED_RED, !LED_ACTIVE);
+			gpioWrite(PIN_LED_GREEN, LED_ACTIVE);
+			gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
+		}
+	}
+
+	static bool button_pressed_flag = 0;
+	if(buttonPressed())
+	{
+		if(!button_pressed_flag)
+		{
+			button_pressed_flag = 1;
+			gpioWrite(PIN_LED_RED, !LED_ACTIVE);
+			gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
+			gpioWrite(PIN_LED_BLUE, LED_ACTIVE);
+		} else
+		{
+			button_pressed_flag = 0;
+		}
+	}
+	*/
+
 	if(encoderMoved())
 	{
 		changeSelection(encoderDir());
