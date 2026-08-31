@@ -29,7 +29,7 @@
 #define PIN_RGB CONCAT(PIN_LED_, COLOR)
 #define PIN_SW CONCAT(PIN_SW, SWITCH)
 
-#define SELECTION_MODES	12
+#define SELECTION_MODES	15
 #define ID_LENGHT 8
 #define PASSWORD_MIN_LENGHT 4
 #define PASSWORD_MAX_LENGHT 5
@@ -65,8 +65,8 @@ static uint8_t selection;
 /* Función que se llama 1 vez, al comienzo del programa */
 void App_Init (void)
 {
-	card_reader_INIT(PIN_CR_ENABLE, PIN_CR_CLOCK, PIN_CR_DATA);
-	encoder_INIT(PIN_SW_ENCODER, PIN_A_ENCODER, PIN_B_ENCODER);
+	card_reader_INIT();
+	encoder_INIT();
 
 }
 
@@ -80,9 +80,17 @@ void App_Run (void)
 		changeSelection(encoderDir());
 	}
 
+	static bool button_pressed_flag = 0;
 	if(buttonPressed())
 	{
-		selectionEntered();
+		if(!button_pressed_flag)
+		{
+			button_pressed_flag = 1;
+			selectionEntered();
+		}
+	} else
+	{
+		button_pressed_flag = 0;
 	}
 }
 

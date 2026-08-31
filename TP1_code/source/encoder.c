@@ -1,8 +1,12 @@
 #include "encoder.h"
 #include "pisr.h"
 
+#define PIN_SW_ENCODER	PORTNUM2PIN(PC, 11)
+#define PIN_A_ENCODER	PORTNUM2PIN(PB, 18)
+#define PIN_B_ENCODER	PORTNUM2PIN(PC, 10)
+
 #define BUTTON_PERIOD_MS        50U
-#define ENCODER_PERIOD_MS		25U
+#define ENCODER_PERIOD_MS		5U
 #define ENCODER_COUNTER			5
 
 #define PISR_MS_TO_TICKS(ms) \
@@ -16,9 +20,6 @@ static void A_IRQHandler(void);
 static void B_IRQHandler(void);
 static void encoder_PISR(void);
 
-static pin_t button;
-static pin_t a;
-static pin_t b;
 static bool counting_a;
 static bool counting_b;
 static bool a_active;
@@ -28,18 +29,14 @@ static bool buttonPressed_flag;
 static bool	encoderMoved_flag;
 static bool encoderDir_flag;
 
-bool encoder_INIT(pin_t buttonPin, pin_t aPin, pin_t bPin)
+bool encoder_INIT(void)
 {
-	gpioMode(buttonPin, INPUT);
-	gpioMode(aPin, INPUT);
-	gpioMode(bPin, INPUT);
+	gpioMode(PIN_SW_ENCODER, INPUT);
+	gpioMode(PIN_A_ENCODER, INPUT);
+	gpioMode(PIN_B_ENCODER, INPUT);
 
-	button = buttonPin;
-	a = aPin;
-	b = bPin;
-
-	bool a_flag = gpioIRQ(aPin, GPIO_IRQ_MODE_RISING_EDGE, A_IRQHandler);
-	bool b_flag = gpioIRQ(bPin, GPIO_IRQ_MODE_RISING_EDGE, B_IRQHandler);
+	bool a_flag = gpioIRQ(PIN_A_ENCODER, GPIO_IRQ_MODE_FALLING_EDGE, A_IRQHandler);
+	bool b_flag = gpioIRQ(PIN_B_ENCODER, GPIO_IRQ_MODE_FALLING_EDGE, B_IRQHandler);
 
 	bool button_flag = pisrRegister(button_PISR, BUTTON_PERIOD_TICKS);
 	bool encoder_flag =	pisrRegister(encoder_PISR, ENCODER_PERIOD_TICKS);
@@ -59,7 +56,13 @@ bool buttonPressed(void)
 
 bool encoderMoved(void)
 {
-	return encoderMoved_flag;
+	if(encoderMoved_flag)
+	{
+		encoderMoved_flag = false;
+		return true;
+	}
+
+	return false;
 }
 
 bool encoderDir(void)
@@ -69,12 +72,12 @@ bool encoderDir(void)
 
 static void button_PISR(void)
 {
-	if(gpioRead(button))
-	{
-		buttonPressed_flag = 1;
-	} else
+	if(gpioRead(PIN_SW_ENCODER))
 	{
 		buttonPressed_flag = 0;
+	} else
+	{
+		buttonPressed_flag = 1;
 	}
 }
 
@@ -104,13 +107,13 @@ static void encoder_PISR(void)
 	{
 		if(counter_a >= ENCODER_COUNTER)
 		{
-			if(gpioRead(a))
+			if(!gpioRead(PIN_A_ENCODER))
 			{
 				a_active = true;
 				if(b_active)
 				{
 					encoderMoved_flag = true;
-					encoderDir_flag = IS_LEFT;
+					encoderDir_flag = IS_RIGHT;
 					a_active = false;
 					b_active = false;
 				}
@@ -128,13 +131,13 @@ static void encoder_PISR(void)
 	{
 		if(counter_b >= ENCODER_COUNTER)
 		{
-			if(gpioRead(b))
+			if(!gpioRead(PIN_B_ENCODER))
 			{
 				b_active = true;
 				if(a_active)
 				{
 					encoderMoved_flag = true;
-					encoderDir_flag = IS_RIGHT;
+					encoderDir_flag = IS_LEFT;
 					a_active = false;
 					b_active = false;
 				}

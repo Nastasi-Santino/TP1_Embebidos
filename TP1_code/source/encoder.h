@@ -20,7 +20,7 @@ enum {
  * FUNCTION PROTOTYPES WITH GLOBAL SCOPE
  ******************************************************************************/
 
-bool encoder_INIT(pin_t buttonPin, pin_t aPin, pin_t bPin);
+bool encoder_INIT(void);
 
 bool buttonPressed(void);
 
