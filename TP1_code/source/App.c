@@ -14,6 +14,7 @@
 #include "card_reader.h"
 #include "encoder.h"
 #include "hardware.h"
+#include "card_decoder.h"
 
 
 /*******************************************************************************
@@ -70,12 +71,12 @@ void App_Init (void)
 
 	// DEBUG
 	gpioMode(PIN_LED_RED, OUTPUT);
-	gpioMode(PIN_LED_GREEN, OUTPUT);
-	gpioMode(PIN_LED_BLUE, OUTPUT);
+	//gpioMode(PIN_LED_GREEN, OUTPUT);
+	//gpioMode(PIN_LED_BLUE, OUTPUT);
 
 	gpioWrite(PIN_LED_RED, !LED_ACTIVE);
-	gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
-	gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
+	//gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
+	//gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
 
 
 }
@@ -85,17 +86,13 @@ void App_Init (void)
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
-	/*
-	static volatile uint8_t data_test[250];
+	static track2_card_t tarjeta;
 	if(data_ready())
 	{
-		for(int i = 0; i < get_data_length(); i++)
-		{
-			data_test[i] = get_data()[i];
+		if(card_decode_track2(get_data(), get_data_length(), &tarjeta)){
+			gpioToggle(PIN_LED_RED);
 		}
-		gpioToggle(PIN_RGB);
 	}
-	*/
 
 	/*
 	if(encoderMoved())

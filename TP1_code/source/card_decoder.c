@@ -1,90 +1,227 @@
 #include "card_decoder.h"
 
-#define START_SENTINEL 0x0B  // 1011 en binario
-#define FIELD_SEPARATOR 0x0D // 1101 en binario
+#define TRACK2_START_SENTINEL     0x0BU
+#define TRACK2_FIELD_SEPARATOR    0x0DU
+#define TRACK2_END_SENTINEL       0x0FU
 
-// Verifica la paridad impar de un nibble (4 bits) más su bit de paridad
-static bool check_odd_parity(uint8_t val, bool parity_bit) 
+// Lee 5 bits seguidos y guarda la palabra de 5 bits en un uint8_t.
+static uint8_t read_character(const volatile uint8_t *raw_data, uint16_t start_bit)
+{
+    uint8_t value = 0;
+
+    for (uint8_t i = 0; i < 5U; i++)
+    {
+        if (raw_data[start_bit + i])
+        {
+            value |= (1U << i);
+        }
+    }
+
+    return value;
+}
+
+// Verifica que se cumpla la paridad impar: cantidad de 1's en la palabra de 5 (imcluye paridad) impar.
+static bool check_odd_parity(uint8_t character)
 {
     uint8_t ones = 0;
 
-    for (int i = 0; i < 4; i++) 
+    character &= 0x1FU;
+
+    for (uint8_t i = 0; i < 5U; i++)
     {
-        if ((val >> i) & 1) ones++;
+        if ((character >> i) & 0x01U)
+        {
+            ones++;
+        }
     }
-    
-    if (parity_bit) ones++;
-    
-    return ((ones & 0x01) == 0x01);
+
+    return ((ones & 0x01U) != 0U);
 }
 
-bool decode_card_id(const uint8_t *raw_data, uint8_t total_bits, uint8_t *id_out) 
+// Avanza de a 1 bit y lee palabras de 5 hasta hallar el inicializador.
+static bool find_start_sentinel(const volatile uint8_t *raw_data, uint16_t total_bits,
+        uint16_t *start_bit)
 {
-    uint8_t current_bit_index = 0;
-    uint8_t character_value = 0;
-    uint8_t digit_count = 0;
-    uint8_t id_index = 0;
-    bool found_ss = false; // Flag de estado
-
-    for (current_bit_index = 0; current_bit_index + 5 <= total_bits; current_bit_index++) 
+    for (uint16_t i = 0; i + 5U <= total_bits; i++)
     {
-        // 1. Leemos 5 posiciones consecutivas
-        for (int i = 0; i < 5; i++) 
+        uint8_t character = read_character(raw_data, i);
+
+        if (check_odd_parity(character) &&
+            ((character & 0x0FU) == TRACK2_START_SENTINEL))
         {
-            if (raw_data[current_bit_index + i] == 1) {
-                character_value |= (1 << i); 
-            }
+            *start_bit = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool card_decode_track2(const volatile uint8_t *raw_data, uint16_t total_bits, track2_card_t *card)
+{
+    if ((raw_data == (uint8_t *)0) || (card == (track2_card_t *)0))
+    {
+        return false;
+    }
+
+    *card = (track2_card_t){0};
+
+    uint16_t bit_index;
+
+    if (!find_start_sentinel(raw_data, total_bits, &bit_index))
+    {
+        return false;
+    }
+
+    uint8_t calculated_lrc = 0;				// Vamos calculando el LRC, debe coincidir con el recibido.
+    bool field_separator_found = false;
+    uint8_t post_separator_count = 0;
+    uint8_t character_count = 0;
+
+    while (bit_index + 5U <= total_bits)
+    {
+    	uint8_t character = read_character(raw_data, bit_index);
+
+        if (!check_odd_parity(character))
+        {
+            return false;
         }
 
-        // 2. Verificamos la paridad impar
-        bool parity_bit = (character_value >> 4) & 0x01;
-        if (!check_odd_parity(character_value & 0x0F, parity_bit)) 
+        // Nos quedamos con la data sin paridad.
+        uint8_t value = character & 0x0FU;
+
+        // Primer palabra.
+        if (character_count == 0U)
         {
-            character_value = 0; 
+            if (value != TRACK2_START_SENTINEL)
+            {
+                return false;
+            }
+
+            calculated_lrc ^= value; // El inicializador tambien se cuenta en la paridad LRC.
+
+            character_count++;
+            bit_index += 5U;
+
             continue;
         }
 
-        // 3. Nos quedamos solo con los datos (aislamos el bit de paridad)
-        character_value &= 0x0F; 
+        // Finalizador
+        if (value == TRACK2_END_SENTINEL)
+        {
+            if (!field_separator_found) // No puede terminar si no encontro el separador.
+            {
+                return false;
+            }
 
-        // 4. MÁQUINA DE ESTADOS
-        if (!found_ss) 
-        {
-            // ESTADO A: Todavía no encontramos el inicio
-            if (character_value == START_SENTINEL) 
+            if (post_separator_count < 4U) // Minimo tiene 4 de fecha.
             {
-                found_ss = true; // Levantamos el flag de estado
-                digit_count = 0;
-                id_index = 0;
-                current_bit_index += 4; // Salto de 5 (4 acá + 1 del for)
+                return false;
             }
-            // Si no es el Start Sentinel, no hacemos nada y el for avanza 1 bit
-        } 
-        else 
-        {
-            // ESTADO B: Ya detectamos el SS y estamos leyendo el ID
-            if (character_value == FIELD_SEPARATOR) 
+
+            calculated_lrc ^= value;	// el finalizador tambien cuenta para el LRC.
+
+            character_count++;
+
+            if ((character_count + 1U) > TRACK2_MAX_CHARACTERS) // Falta el caracter LRC.
             {
-                id_out[id_index] = '\0'; // Cerramos el string en C
-                return true; // Lectura exitosa
-            } 
-            else 
-            {
-                id_out[id_index++] = character_value + '0';
-                digit_count++;
-                
-                if (digit_count >= ID_LENGTH)    
-                {
-                    id_out[id_index] = '\0'; // Cerramos el string
-                    return true; // Leímos los 8 justos
-                }
-                
-                current_bit_index += 4; // Salto de 5 para el próximo dígito
+                return false;
             }
+
+            bit_index += 5U;
+
+            if (bit_index + 5U > total_bits)
+            {
+                return false;
+            }
+
+            uint8_t lrc_character = read_character(raw_data, bit_index);
+
+            if (!check_odd_parity(lrc_character))
+            {
+                return false;
+            }
+
+            uint8_t received_lrc = lrc_character & 0x0FU;
+
+            if (received_lrc != calculated_lrc) // ultima verificacion: LRC.
+            {
+                return false;
+            }
+
+            return true; // si llego aca cumplio toda verificacion.
         }
-        
-        character_value = 0; // Reiniciamos para el próximo carácter
+
+        if (!field_separator_found)	// Antes del separador (PAN)
+        {
+            if (value == TRACK2_FIELD_SEPARATOR)
+            {
+                if (card->pan_length == 0U) // No se permite PAN vacia.
+                {
+                    return false;
+                }
+
+                field_separator_found = true;
+
+                calculated_lrc ^= value; // separador tambien cuenta para el LRC.
+
+                character_count++;
+                bit_index += 5U;
+
+                continue;
+            }
+
+            if (value > 9U) // Todos los valores del PAN son numericos.
+            {
+                return false;
+            }
+
+            if (card->pan_length >= TRACK2_MAX_PAN_LENGTH)
+            {
+                return false;
+            }
+
+            card->pan[card->pan_length] = value;
+            card->pan_length++;
+        } else	// Despues del separador
+        {
+            if (value > 9U) // Todos numericos tambien.
+            {
+                return false;
+            }
+
+            if (post_separator_count < TRACK2_DATE_LENGTH)
+            {
+                card->expiration_date[post_separator_count] = value;
+            } else if(post_separator_count <(TRACK2_DATE_LENGTH + TRACK2_SERVICE_CODE_LENGTH))
+            {
+                card->service_code[post_separator_count - TRACK2_DATE_LENGTH] = value;
+            } else
+            {
+                if (card->additional_length >= TRACK2_MAX_ADDITIONAL_LENGTH)
+                {
+                    return false;
+                }
+
+                card->additional_data[card->additional_length] = value;
+
+                card->additional_length++;
+            }
+
+            post_separator_count++;
+        }
+
+        calculated_lrc ^= value;
+
+        character_count++;
+
+        if (character_count > (TRACK2_MAX_CHARACTERS - 2U)) // Si llega aca falta el ES y LRC.
+        {
+            return false;
+        }
+
+        bit_index += 5U;
     }
 
-    return false; // Si el bucle termina sin retornar true, la lectura falló
+    return false; // el buffer se quedo sin data antes del ES.
 }
