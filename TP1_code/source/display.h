@@ -8,7 +8,6 @@
 
 #define DISPLAY_COUNT	 	4U
 #define REFRESH_RATE_HZ		100U
-#define ROW_PERIOD_MS		2000U
 
 /*******************************************************************************
  * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
@@ -31,6 +30,7 @@ typedef struct
  ******************************************************************************/
 
 bool display_INIT(void);
-display_t print(uint8_t * data, uint8_t data_length, uint8_t selection, uint8_t mode, bool private);
+display_t print(uint8_t * data, uint8_t data_length, uint8_t selection,
+		uint8_t mode, bool private);
 
 #endif /* DISPLAY_H_ */

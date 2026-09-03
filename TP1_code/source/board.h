@@ -37,12 +37,6 @@
 #define SW_INPUT_TYPE   INPUT_PULLUP
 
 
-// Serial to Display
-#define PIN_SERIAL		PORTNUM2PIN(PB, 11)
-#define PIN_SCLK		PORTNUM2PIN(PB, 2)
-#define PIN_RCLK		PORTNUM2PIN(PB, 3)
-#define PIN_OE			PORTNUM2PIN(PB, 10)
-
 
 /*******************************************************************************
  ******************************************************************************/

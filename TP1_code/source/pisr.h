@@ -26,6 +26,9 @@
 #define PISR_MS_TO_TICKS(ms) \
     (((ms) * 1000U) / PISR_TICK_US)
 
+#define PISR_US_TO_TICKS(us) \
+    (((us) * 1000000U) / PISR_TICK_US)
+
 
 /*******************************************************************************
  * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
