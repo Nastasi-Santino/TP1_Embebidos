@@ -95,6 +95,7 @@ void App_Run (void)
 	}
 
 	/*
+
 	if(encoderMoved())
 	{
 		if(encoderDir() == IS_RIGHT)

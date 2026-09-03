@@ -23,6 +23,9 @@
 
 #define PISR_CANT        8
 
+#define PISR_MS_TO_TICKS(ms) \
+    (((ms) * 1000U) / PISR_TICK_US)
+
 
 /*******************************************************************************
  * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
