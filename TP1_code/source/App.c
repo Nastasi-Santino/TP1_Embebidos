@@ -20,9 +20,10 @@
  ******************************************************************************/
 
 #define SELECTION_MODES	16
-#define ID_LENGHT 8
+#define ID_LENGTH 8
 #define PASSWORD_MIN_LENGHT 4
 #define PASSWORD_MAX_LENGHT 5
+#define USERS_IN_SYSTEM		3
 
 /*******************************************************************************
  * FUNCTION PROTOTYPES FOR PRIVATE FUNCTIONS WITH FILE LEVEL SCOPE
@@ -35,6 +36,13 @@ void selectionEntered(void);
  * STATIC VARIABLES AND CONST VARIABLES WITH FILE LEVEL SCOPE
  ******************************************************************************/
 
+typedef struct
+{
+    uint8_t id[8];
+    uint8_t password[5];
+    uint8_t password_length;
+} user_t;
+
 enum
 {
 	WAITING_ID,
@@ -44,6 +52,8 @@ enum
 	CHANGING_PASSWORD,
 	BRIGHTNESS
 };
+
+static user_t users[3];
 
 static uint8_t state;
 
@@ -56,6 +66,7 @@ static uint8_t password[5];
 static uint8_t password_counter;
 
 static uint8_t selection;
+static uint8_t status;
 
 /*******************************************************************************
  *******************************************************************************
@@ -73,15 +84,34 @@ void App_Init (void)
 	display_INIT();
 
 	state = WAITING_ID;
+
+	users[0] = (user_t){
+	    .id = {6, 0, 3, 1, 6, 7, 0, 9},
+	    .password = {6, 5, 1, 1},
+		.password_length = 4
+	};
+
+	users[1] = (user_t){
+	    .id = {4, 5, 4, 8, 3, 2, 0, 0},
+	    .password = {1, 0, 2, 2, 9},
+		.password_length = 5
+	};
+
+	users[2] = (user_t){
+	    .id = {4, 0, 6, 6, 6, 3, 4, 1},
+	    .password = {0, 4, 2, 8},
+		.password_length = 4
+	};
 }
 
 
-
+static uint8_t good[4]   = {17, 18, 18, 19};
+static uint8_t id_word[4]= {};
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
 
-	uint8_t mode = (state == SHOWING_ID) ? COMPLETE : EDITING;
+	uint8_t mode = (state == SHOWING_ID || state == OPENING) ? COMPLETE : EDITING;
 	bool private = (state == WAITING_PASSWORD) ? true : false;
 	uint8_t length;
 	uint8_t * data;
@@ -90,13 +120,20 @@ void App_Run (void)
 	{
 		length = id_counter;
 		data = id;
+		status = 0;
 	} else if(state == WAITING_PASSWORD)
 	{
 		length = password_counter;
 		data = password;
+		status = 0;
+	} else if(state == OPENING)
+	{
+		length = 4;
+		data = good;
+		status = 3;
 	}
 	print(data, length , selection,
-			mode, private, row, 0x00);
+			mode, private, row, status);
 
 	static track2_card_t card;
 	if(state == WAITING_ID  && data_ready())
@@ -118,7 +155,7 @@ void App_Run (void)
 	{
 		if(state == WAITING_ID)
 		{
-			changeSelection(encoderDir(), id_counter == ID_LENGHT);
+			changeSelection(encoderDir(), id_counter == ID_LENGTH);
 		} else if(state == SHOWING_ID)
 		{
 			row = (row + 1) & 0x01;
@@ -205,7 +242,7 @@ void selectionEntered(void)
 	{
 		counter = &id_counter;
 		data = id;
-		max = ID_LENGHT;
+		max = ID_LENGTH;
 	} else if(state == WAITING_PASSWORD)
 	{
 		counter = &password_counter;
@@ -230,11 +267,56 @@ void selectionEntered(void)
 		(*counter) = 0;
 	} else if(selection == 14)
 	{
-		(*counter) = 0;
+		id_counter = 0;
+		password_counter = 0;
 		state = WAITING_ID;
 	} else if(selection == 15)
 	{
-		state++;
+		if(WAITING_PASSWORD)
+		{
+			bool correct_password = false;
+			bool existing_id = false;
+			for(int i = 0; i < USERS_IN_SYSTEM; i++)
+			{
+				uint8_t j = 0;
+				while((id[j] == users[i].id[j]) && (j < ID_LENGTH))
+				{
+					j++;
+				}
+				if(j == ID_LENGTH)
+				{
+					existing_id = true;
+					uint8_t m = 0;
+					while((password[m] == users[i].password[m]) && (m < users[i].password_length))
+					{
+						m++;
+					}
+					if(m == users[i].password_length)
+					{
+						correct_password = true;
+						break;
+					}
+				}
+			}
+			if(correct_password)
+			{
+				state++;
+			} else
+			{
+				if(!existing_id)
+				{
+					id_counter = 0;
+					password_counter = 0;
+					state = WAITING_ID;
+				} else
+				{
+					password_counter = 0;
+				}
+			}
+		} else
+		{
+			state++;
+		}
 	}
 
 	if((*counter) < max)

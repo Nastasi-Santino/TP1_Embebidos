@@ -129,9 +129,13 @@ static uint8_t numberToSegments(uint8_t num, bool decimalPoint)
 		0x1E,  // 15: b c d e
 
 		0x40,  // 16: g
+
+		0x7D,  // 17: a c d e f g (letra G)
+		0x5C,  // 18: c d e g (letra O)
+		0x5E,  // 19: b c d e g   (letra d)
     };
 
-    if (num > 16)
+    if (num > 19)
         return 0x00;
 
     return decimalPoint ? segments[num] | 0x80 : segments[num];
