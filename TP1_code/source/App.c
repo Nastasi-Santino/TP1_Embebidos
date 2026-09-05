@@ -9,11 +9,8 @@
  ******************************************************************************/
 
 #include "board.h"
-#include "gpio.h"
-#include "pisr.h"
 #include "card_reader.h"
 #include "encoder.h"
-#include "hardware.h"
 #include "card_decoder.h"
 #include "display.h"
 
@@ -22,16 +19,7 @@
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
 
-#define COLOR RED
-#define SWITCH 2
-
-#define CONCAT_IMPL(a, b) a##b
-#define CONCAT(a, b) CONCAT_IMPL(a, b)
-
-#define PIN_RGB CONCAT(PIN_LED_, COLOR)
-#define PIN_SW CONCAT(PIN_SW, SWITCH)
-
-#define SELECTION_MODES	15
+#define SELECTION_MODES	16
 #define ID_LENGHT 8
 #define PASSWORD_MIN_LENGHT 4
 #define PASSWORD_MAX_LENGHT 5
@@ -40,7 +28,7 @@
  * FUNCTION PROTOTYPES FOR PRIVATE FUNCTIONS WITH FILE LEVEL SCOPE
  ******************************************************************************/
 
-void changeSelection(bool dir);
+void changeSelection(bool dir, bool complete);
 void selectionEntered(void);
 
 /*******************************************************************************
@@ -57,11 +45,13 @@ enum
 	BRIGHTNESS
 };
 
-static bool waiting_id;
+static uint8_t state;
+
+static uint8_t row;
+
 static uint8_t id[8];
 static uint8_t id_counter;
 
-static bool waiting_password;
 static uint8_t password[5];
 static uint8_t password_counter;
 
@@ -77,23 +67,12 @@ static uint8_t selection;
 /* Función que se llama 1 vez, al comienzo del programa */
 void App_Init (void)
 {
-	//card_reader_INIT();
+	card_reader_INIT();
 	encoder_INIT();
 
 	display_INIT();
 
-	waiting_id = true;
-
-	// DEBUG
-	//gpioMode(PIN_LED_RED, OUTPUT);
-	//gpioMode(PIN_LED_GREEN, OUTPUT);
-	//gpioMode(PIN_LED_BLUE, OUTPUT);
-
-	//gpioWrite(PIN_LED_RED, !LED_ACTIVE);
-	//gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
-	//gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
-
-
+	state = WAITING_ID;
 }
 
 
@@ -101,30 +80,51 @@ void App_Init (void)
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
-	/*
-	static track2_card_t tarjeta;
-	if(data_ready())
+
+	uint8_t mode = (state == SHOWING_ID) ? COMPLETE : EDITING;
+	bool private = (state == WAITING_PASSWORD) ? true : false;
+	uint8_t length;
+	uint8_t * data;
+
+	if(state == WAITING_ID || state == SHOWING_ID)
 	{
-		if(card_decode_track2(get_data(), get_data_length(), &tarjeta)){
-			gpioToggle(PIN_LED_RED);
+		length = id_counter;
+		data = id;
+	} else if(state == WAITING_PASSWORD)
+	{
+		length = password_counter;
+		data = password;
+	}
+	print(data, length , selection,
+			mode, private, row, 0x00);
+
+	static track2_card_t card;
+	if(state == WAITING_ID  && data_ready())
+	{
+		if(card_decode_track2(get_data(), get_data_length(), &card)){
+			if(card.pan_length >= 8)
+			{
+				for(int i = 0; i < 8; i++)
+				{
+					id[i] = card.pan[i];
+					id_counter = 8;
+				}
+				state++;
+			}
 		}
 	}
-	*/
-
-	/*
 
 	if(encoderMoved())
 	{
-		if(encoderDir() == IS_RIGHT)
+		if(state == WAITING_ID)
 		{
-			gpioWrite(PIN_LED_RED, LED_ACTIVE);
-			gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
-			gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
-		} else
+			changeSelection(encoderDir(), id_counter == ID_LENGHT);
+		} else if(state == SHOWING_ID)
 		{
-			gpioWrite(PIN_LED_RED, !LED_ACTIVE);
-			gpioWrite(PIN_LED_GREEN, LED_ACTIVE);
-			gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
+			row = (row + 1) & 0x01;
+		} else if(state == WAITING_PASSWORD)
+		{
+			changeSelection(encoderDir(), password_counter == PASSWORD_MAX_LENGHT);
 		}
 	}
 
@@ -134,32 +134,14 @@ void App_Run (void)
 		if(!button_pressed_flag)
 		{
 			button_pressed_flag = 1;
-			gpioWrite(PIN_LED_RED, !LED_ACTIVE);
-			gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
-			gpioWrite(PIN_LED_BLUE, LED_ACTIVE);
-		} else
-		{
-			button_pressed_flag = 0;
-		}
-	}
-	*/
-
-	print(id, id_counter, selection,
-			EDITING, false, 0, 0x00);
-
-
-	if(encoderMoved())
-	{
-		changeSelection(encoderDir());
-	}
-
-	static bool button_pressed_flag = 0;
-	if(buttonPressed())
-	{
-		if(!button_pressed_flag)
-		{
-			button_pressed_flag = 1;
-			selectionEntered();
+			if(state == WAITING_ID || state == WAITING_PASSWORD)
+			{
+				selectionEntered();
+			} else if(state == SHOWING_ID)
+			{
+				state++;
+				selection = 0;
+			}
 		}
 	} else
 	{
@@ -175,22 +157,37 @@ void App_Run (void)
  *******************************************************************************
  ******************************************************************************/
 
-void changeSelection(bool dir)
+void changeSelection(bool dir, bool complete)
 {
+	uint8_t max = SELECTION_MODES - 2;
+	uint8_t min = 0;
+
+	if(complete)
+	{
+		max = SELECTION_MODES - 1;
+		min = 10;
+	}
+
+	if(password_counter >= PASSWORD_MIN_LENGHT)
+	{
+		max = SELECTION_MODES - 1;
+	}
+
+
 	if(dir == IS_RIGHT)
 	{
-		if(selection == SELECTION_MODES - 1)
+		if(selection == max)
 		{
-			selection = 0;
+			selection = min;
 		} else
 		{
 			selection++;
 		}
 	} else
 	{
-		if(selection == 0)
+		if(selection == min)
 		{
-			selection = SELECTION_MODES - 1;
+			selection = max;
 		} else
 		{
 			selection--;
@@ -201,23 +198,54 @@ void changeSelection(bool dir)
 
 void selectionEntered(void)
 {
+	uint8_t * counter;
+	uint8_t * data;
+	uint8_t max;
+	if(state == WAITING_ID)
+	{
+		counter = &id_counter;
+		data = id;
+		max = ID_LENGHT;
+	} else if(state == WAITING_PASSWORD)
+	{
+		counter = &password_counter;
+		data = password;
+		max = PASSWORD_MAX_LENGHT;
+	}
+
 	if(selection >= 0 && selection <= 9)
 	{
-		if(waiting_id)
+		if(*counter < max)
 		{
-			if(id_counter < ID_LENGHT)
-			{
-				id[id_counter++] = selection;
-			}
-		} else if(waiting_password)
-		{
-			if(password_counter < PASSWORD_MAX_LENGHT)
-			{
-				password[password_counter++] = selection;
-			}
+			data[(*counter)++] = selection;
 		}
+	} else if(selection == 10)
+	{
+		if((*counter) != 0)
+		{
+			(*counter)--;
+		}
+	} else if(selection == 11)
+	{
+		(*counter) = 0;
+	} else if(selection == 14)
+	{
+		(*counter) = 0;
+		state = WAITING_ID;
+	} else if(selection == 15)
+	{
+		state++;
+	}
+
+	if((*counter) < max)
+	{
+		selection = 0;
+	} else
+	{
+		selection = 15;
 	}
 }
+
 
 /*******************************************************************************
  ******************************************************************************/

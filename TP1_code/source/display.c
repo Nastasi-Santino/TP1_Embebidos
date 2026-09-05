@@ -70,7 +70,7 @@ void print(uint8_t * data, uint8_t data_length,
 			{
 				if(private)
 				{
-					output.seg = numberToSegments(15, false);
+					output.seg = numberToSegments(16, false);
 				} else
 				{
 					output.seg = numberToSegments(data[index], false);
@@ -126,11 +126,12 @@ static uint8_t numberToSegments(uint8_t num, bool decimalPoint)
         0x7C,  // 12: c d e f g
         0x39,  // 13: a d e f
         0x50,  // 14: e g
+		0x1E,  // 15: b c d e
 
-		0x40,  // 15: g
+		0x40,  // 16: g
     };
 
-    if (num > 15)
+    if (num > 16)
         return 0x00;
 
     return decimalPoint ? segments[num] | 0x80 : segments[num];
