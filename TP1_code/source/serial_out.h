@@ -1,11 +1,14 @@
 #ifndef SERIAL_OUT_H_
 #define SERIAL_OUT_H_
 
+#include <stdint.h>
+#include <stdbool.h>
+
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
 
-#define SER_CLK_PERIOD_US	100U
+#define SER_CLK_PERIOD_US	10U
 
 bool serial_out_INIT(void);
 

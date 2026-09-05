@@ -1,6 +1,8 @@
 #ifndef DISPLAY_H_
 #define DISPLAY_H_
 
+#include <stdint.h>
+#include <stdbool.h>
 
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
@@ -19,18 +21,13 @@ enum
 };
 
 
-typedef struct
-{
-	uint8_t seg;
-	uint8_t column;
-}display_t;
-
 /*******************************************************************************
  * FUNCTION PROTOTYPES WITH GLOBAL SCOPE
  ******************************************************************************/
 
 bool display_INIT(void);
-display_t print(uint8_t * data, uint8_t data_length, uint8_t selection,
-		uint8_t mode, bool private);
+
+void print(uint8_t * data, uint8_t data_length,
+		uint8_t selection, uint8_t mode, bool private, uint8_t row, uint8_t status);
 
 #endif /* DISPLAY_H_ */

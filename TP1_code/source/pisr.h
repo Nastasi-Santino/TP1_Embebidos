@@ -19,7 +19,7 @@
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
 
-#define PISR_TICK_US     1000U
+#define PISR_TICK_US     10U
 
 #define PISR_CANT        8
 
@@ -27,7 +27,7 @@
     (((ms) * 1000U) / PISR_TICK_US)
 
 #define PISR_US_TO_TICKS(us) \
-    (((us) * 1000000U) / PISR_TICK_US)
+    ((us) / PISR_TICK_US)
 
 
 /*******************************************************************************

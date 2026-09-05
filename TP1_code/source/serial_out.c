@@ -27,7 +27,11 @@ bool serial_out_INIT(void)
 	gpioWrite(PIN_OE, LOW);
 
 
-	pisrRegister(serCLK_geneator, SCLK_TICKS);
+	if(!pisrRegister(serCLK_geneator, SCLK_TICKS))
+	{
+		return false;
+	}
+	return true;
 }
 
 void serial_out(uint8_t seg, uint8_t sel, uint8_t status)
@@ -47,11 +51,11 @@ void serial_out(uint8_t seg, uint8_t sel, uint8_t status)
 				{
 					data = (sel & 0x02) == 0x02;
 					sel <<= 1;
-				} else if(count < 4)
+				} else if(counter < 4)
 				{
 					data = (status & 0x02) == 0x02;
 					status <<= 1;
-				} else if(count != 5 || count != 13)
+				} else if(counter != 5 && counter != 13)
 				{
 					data = (seg & 0x01) == 0x01;
 					seg >>= 1;
@@ -77,6 +81,7 @@ void serial_out(uint8_t seg, uint8_t sel, uint8_t status)
 	gpioWrite(PIN_OE, HIGH);
 	gpioWrite(PIN_RCLK, HIGH);
 	flag = true;
+
 	while(counter < 17)
 	{
 		if(serCLK)
@@ -91,6 +96,7 @@ void serial_out(uint8_t seg, uint8_t sel, uint8_t status)
 			flag = true;
 		}
 	}
+
 
 	gpioWrite(PIN_OE, LOW);
 	gpioWrite(PIN_SCLK, 0);

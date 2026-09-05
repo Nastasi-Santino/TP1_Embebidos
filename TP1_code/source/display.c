@@ -1,16 +1,24 @@
 #include "display.h"
 #include "pisr.h"
+#include "serial_out.h"
 
 #define REFRESH_PERIOD_MS 	1000U/REFRESH_RATE_HZ
 #define COLUMN_PERIOD_MS REFRESH_PERIOD_MS/DISPLAY_COUNT
 
 #define COLUMN_PERIOD_TICKS	PISR_MS_TO_TICKS(COLUMN_PERIOD_MS)
 
+typedef struct
+{
+	uint8_t seg;
+	uint8_t column;
+}display_t;
+
 
 void refreshColumns(void);
-static uint8_t numberToSegments(uint8_t num);
+static uint8_t numberToSegments(uint8_t num, bool private);
 
 static uint8_t current_column;
+static bool update_data;
 
 bool display_INIT(void)
 {
@@ -19,23 +27,33 @@ bool display_INIT(void)
 		return false;
 	}
 
+	if(!serial_out_INIT())
+	{
+		return false;
+	}
+
 	return true;
 }
 
-display_t print(uint8_t * data, uint8_t data_length,
-		uint8_t selection, uint8_t mode, bool private, uint8_t row)
+void print(uint8_t * data, uint8_t data_length,
+		uint8_t selection, uint8_t mode, bool private, uint8_t row, uint8_t status)
 {
-	display_t output = 0;
+	if(!update_data)
+	{
+		return;
+	}
+
+	display_t output;
 	uint8_t selection_column = 0;
 	uint8_t index = 0;
 	uint8_t current_column_temp = current_column;
-	output.sel = current_column_temp & 0x03;
+	output.column = current_column_temp & 0x03;
 
 	if(mode == EDITING)
 	{
 		if(data_length >= DISPLAY_COUNT - 1)
 		{
-			selection_column = 3;
+			selection_column = DISPLAY_COUNT - 1;
 			index = data_length - DISPLAY_COUNT + 1 + current_column_temp;
 		} else
 		{
@@ -48,26 +66,45 @@ display_t print(uint8_t * data, uint8_t data_length,
 			output.seg = numberToSegments(selection, true);
 		} else
 		{
-			if(private)
+			if(index < data_length)
 			{
-				output.seg = numberToSegments(15, false);
+				if(private)
+				{
+					output.seg = numberToSegments(15, false);
+				} else
+				{
+					output.seg = numberToSegments(data[index], false);
+				}
 			} else
 			{
-				output.seg = numberToSegments(data[index], false);
+				output.seg = 0x00;
 			}
 		}
 	} else if(mode == COMPLETE)
 	{
 		index = current_column_temp + row * DISPLAY_COUNT;
-		output.seg = numberToSegments(data[index], false);
+		if(index < data_length)
+		{
+			output.seg = numberToSegments(data[index], false);
+		} else
+		{
+			output.seg = 0x00;
+		}
+
 	}
 
-	return output;
+	serial_out(output.seg, output.column, status);
+	if(current_column_temp == current_column)
+	{
+		update_data = false;
+	}
+
 }
 
 void refreshColumns(void)
 {
 	current_column = (current_column + 1) & 0x03;
+	update_data = true;
 }
 
 static uint8_t numberToSegments(uint8_t num, bool decimalPoint)

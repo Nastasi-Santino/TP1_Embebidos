@@ -15,6 +15,7 @@
 #include "encoder.h"
 #include "hardware.h"
 #include "card_decoder.h"
+#include "display.h"
 
 
 /*******************************************************************************
@@ -46,6 +47,16 @@ void selectionEntered(void);
  * STATIC VARIABLES AND CONST VARIABLES WITH FILE LEVEL SCOPE
  ******************************************************************************/
 
+enum
+{
+	WAITING_ID,
+	SHOWING_ID,
+	WAITING_PASSWORD,
+	OPENING,
+	CHANGING_PASSWORD,
+	BRIGHTNESS
+};
+
 static bool waiting_id;
 static uint8_t id[8];
 static uint8_t id_counter;
@@ -66,15 +77,19 @@ static uint8_t selection;
 /* Función que se llama 1 vez, al comienzo del programa */
 void App_Init (void)
 {
-	card_reader_INIT();
+	//card_reader_INIT();
 	encoder_INIT();
 
+	display_INIT();
+
+	waiting_id = true;
+
 	// DEBUG
-	gpioMode(PIN_LED_RED, OUTPUT);
+	//gpioMode(PIN_LED_RED, OUTPUT);
 	//gpioMode(PIN_LED_GREEN, OUTPUT);
 	//gpioMode(PIN_LED_BLUE, OUTPUT);
 
-	gpioWrite(PIN_LED_RED, !LED_ACTIVE);
+	//gpioWrite(PIN_LED_RED, !LED_ACTIVE);
 	//gpioWrite(PIN_LED_GREEN, !LED_ACTIVE);
 	//gpioWrite(PIN_LED_BLUE, !LED_ACTIVE);
 
@@ -86,6 +101,7 @@ void App_Init (void)
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
+	/*
 	static track2_card_t tarjeta;
 	if(data_ready())
 	{
@@ -93,6 +109,7 @@ void App_Run (void)
 			gpioToggle(PIN_LED_RED);
 		}
 	}
+	*/
 
 	/*
 
@@ -127,6 +144,10 @@ void App_Run (void)
 	}
 	*/
 
+	print(id, id_counter, selection,
+			EDITING, false, 0, 0x00);
+
+
 	if(encoderMoved())
 	{
 		changeSelection(encoderDir());
@@ -144,6 +165,7 @@ void App_Run (void)
 	{
 		button_pressed_flag = 0;
 	}
+
 }
 
 
