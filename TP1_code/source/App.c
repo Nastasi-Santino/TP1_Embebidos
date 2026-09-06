@@ -24,6 +24,7 @@
 #define PASSWORD_MIN_LENGHT 4
 #define PASSWORD_MAX_LENGHT 5
 #define USERS_IN_SYSTEM		3
+#define MAX_PASSWORD_TRIES	3
 
 /*******************************************************************************
  * FUNCTION PROTOTYPES FOR PRIVATE FUNCTIONS WITH FILE LEVEL SCOPE
@@ -31,7 +32,8 @@
 
 void changeSelection(bool dir, bool complete);
 void selectionEntered(void);
-
+bool checkId(void);
+bool matchPassword(void);
 /*******************************************************************************
  * STATIC VARIABLES AND CONST VARIABLES WITH FILE LEVEL SCOPE
  ******************************************************************************/
@@ -54,6 +56,8 @@ enum
 };
 
 static user_t users[3];
+static uint8_t active_user;
+static uint8_t password_tries;
 
 static uint8_t state;
 
@@ -105,8 +109,10 @@ void App_Init (void)
 }
 
 
-static uint8_t good[4]   = {17, 18, 18, 19};
-static uint8_t id_word[4]= {};
+static uint8_t good[4]   = {G, o, o, d};
+//static uint8_t wrong[3]  = {X, X, X};
+//static uint8_t id_msg[4] = {GUION, I, d, GUION};
+//static uint8_t id_nF[4]  = {I, d, n, F};
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
@@ -146,7 +152,13 @@ void App_Run (void)
 					id[i] = card.pan[i];
 					id_counter = 8;
 				}
-				state++;
+				if(checkId())
+				{
+					state = SHOWING_ID;
+				} else
+				{
+					id_counter = 0;
+				}
 			}
 		}
 	}
@@ -176,7 +188,7 @@ void App_Run (void)
 				selectionEntered();
 			} else if(state == SHOWING_ID)
 			{
-				state++;
+				state = WAITING_PASSWORD;
 				selection = 0;
 			}
 		}
@@ -272,50 +284,33 @@ void selectionEntered(void)
 		state = WAITING_ID;
 	} else if(selection == 15)
 	{
-		if(WAITING_PASSWORD)
+		if(state == WAITING_ID)
 		{
-			bool correct_password = false;
-			bool existing_id = false;
-			for(int i = 0; i < USERS_IN_SYSTEM; i++)
+			if(checkId())
 			{
-				uint8_t j = 0;
-				while((id[j] == users[i].id[j]) && (j < ID_LENGTH))
-				{
-					j++;
-				}
-				if(j == ID_LENGTH)
-				{
-					existing_id = true;
-					uint8_t m = 0;
-					while((password[m] == users[i].password[m]) && (m < users[i].password_length))
-					{
-						m++;
-					}
-					if(m == users[i].password_length)
-					{
-						correct_password = true;
-						break;
-					}
-				}
-			}
-			if(correct_password)
-			{
-				state++;
+				state = SHOWING_ID;
 			} else
 			{
-				if(!existing_id)
+				id_counter = 0;
+			}
+		} else if(state == WAITING_PASSWORD)
+		{
+			if(matchPassword())
+			{
+				state = OPENING;
+			} else
+			{
+				if(password_tries++ < MAX_PASSWORD_TRIES - 1)
+				{
+					password_counter = 0;
+				} else
 				{
 					id_counter = 0;
 					password_counter = 0;
+					password_tries = 0;
 					state = WAITING_ID;
-				} else
-				{
-					password_counter = 0;
 				}
 			}
-		} else
-		{
-			state++;
 		}
 	}
 
@@ -326,6 +321,40 @@ void selectionEntered(void)
 	{
 		selection = 15;
 	}
+}
+
+
+bool checkId(void)
+{
+	bool existing_id = false;
+	for(int i = 0; i < USERS_IN_SYSTEM; i++)
+	{
+		uint8_t j = 0;
+		while((id[j] == users[i].id[j]) && (j < ID_LENGTH))
+		{
+			j++;
+		}
+
+		if(j == ID_LENGTH)
+		{
+			existing_id = true;
+			active_user = i;
+			break;
+		}
+	}
+
+	return existing_id;
+}
+
+bool matchPassword(void)
+{
+	uint8_t m = 0;
+	while((password[m] == users[active_user].password[m]) && (m < users[active_user].password_length))
+	{
+		m++;
+	}
+
+	return m == users[active_user].password_length;
 }
 
 
