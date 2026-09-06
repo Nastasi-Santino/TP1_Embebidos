@@ -11,6 +11,17 @@
 #define DISPLAY_COUNT	 	4U
 #define REFRESH_RATE_HZ		100U
 
+enum{
+	ALL_LEDS_OFF,
+	ONLY_FIRST_LED,
+	ONLY_SECOND_LED,
+	ONLY_THIRD_LED,
+	FIRST_AND_SECOND_LED,
+	SECOND_AND_THIRD_LED,
+	FIRST_AND_THIRD_LED,
+	ALL_LEDS_ON
+};
+
 /*******************************************************************************
  * LETTERS
  ******************************************************************************/

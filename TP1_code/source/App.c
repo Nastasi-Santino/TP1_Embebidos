@@ -13,6 +13,7 @@
 #include "encoder.h"
 #include "card_decoder.h"
 #include "display.h"
+#include "timer.h"
 
 
 /*******************************************************************************
@@ -47,10 +48,13 @@ typedef struct
 
 enum
 {
+	ASKING_ID,
 	WAITING_ID,
 	SHOWING_ID,
+	ID_NOT_FOUND,
 	WAITING_PASSWORD,
 	OPENING,
+	WRONG_PASSWORD,
 	CHANGING_PASSWORD,
 	BRIGHTNESS
 };
@@ -86,11 +90,12 @@ void App_Init (void)
 	encoder_INIT();
 
 	display_INIT();
+	timer_INIT();
 
-	state = WAITING_ID;
+	state = ASKING_ID;
 
 	users[0] = (user_t){
-	    .id = {6, 0, 3, 1, 6, 7, 0, 9},
+	    .id = {6, 0, 3, 2, 6, 7, 0, 9},
 	    .password = {6, 5, 1, 1},
 		.password_length = 4
 	};
@@ -110,34 +115,105 @@ void App_Init (void)
 
 
 static uint8_t good[4]   = {G, o, o, d};
-//static uint8_t wrong[3]  = {X, X, X};
-//static uint8_t id_msg[4] = {GUION, I, d, GUION};
-//static uint8_t id_nF[4]  = {I, d, n, F};
+static uint8_t wrong[3]  = {X, X, X};
+static uint8_t id_msg[4] = {GUION, I, d, GUION};
+static uint8_t id_nF[4]  = {I, d, n, F};
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
 
-	uint8_t mode = (state == SHOWING_ID || state == OPENING) ? COMPLETE : EDITING;
+	uint8_t mode;
 	bool private = (state == WAITING_PASSWORD) ? true : false;
 	uint8_t length;
 	uint8_t * data;
 
-	if(state == WAITING_ID || state == SHOWING_ID)
+	switch(state)
 	{
+	case ASKING_ID:
+		length = 4;
+		data = id_msg;
+		status = 0;
+		mode = COMPLETE;
+		if(timer_finished())
+		{
+			state = WAITING_ID;
+		} else {
+			if(!timer_counting())
+			{
+				start_timer_ms(2000);
+			}
+		}
+		break;
+	case WAITING_ID:
+	case SHOWING_ID:
 		length = id_counter;
 		data = id;
+		status = SECOND_AND_THIRD_LED;
+		mode = (state == SHOWING_ID) ? COMPLETE : EDITING;
+		break;
+	case ID_NOT_FOUND:
+		length = 4;
+		data = id_nF;
 		status = 0;
-	} else if(state == WAITING_PASSWORD)
-	{
+		mode = COMPLETE;
+		if(timer_finished())
+		{
+			state = WAITING_ID;
+		} else {
+			if(!timer_counting())
+			{
+				start_timer_ms(2000);
+			}
+		}
+		break;
+	case WAITING_PASSWORD:
 		length = password_counter;
 		data = password;
 		status = 0;
-	} else if(state == OPENING)
-	{
+		mode = EDITING;
+		break;
+	case OPENING:
 		length = 4;
 		data = good;
 		status = 3;
+		mode = COMPLETE;
+		if(timer_finished())
+		{
+			state = ASKING_ID;
+		} else {
+			if(!timer_counting())
+			{
+				start_timer_ms(5000);
+			}
+		}
+		break;
+	case WRONG_PASSWORD:
+		length = password_tries;
+		data = wrong;
+		status = 0;
+		mode = COMPLETE;
+		if(timer_finished())
+		{
+			if(password_tries < 3)
+			{
+				state = WAITING_PASSWORD;
+			} else
+			{
+				state = ASKING_ID;
+				id_counter = 0;
+			}
+		} else {
+			if(!timer_counting())
+			{
+				start_timer_ms(1000);
+			}
+		}
+		break;
+	default:
+		break;
 	}
+
+
 	print(data, length , selection,
 			mode, private, row, status);
 
@@ -158,6 +234,7 @@ void App_Run (void)
 				} else
 				{
 					id_counter = 0;
+					state = ID_NOT_FOUND;
 				}
 			}
 		}
@@ -300,16 +377,9 @@ void selectionEntered(void)
 				state = OPENING;
 			} else
 			{
-				if(password_tries++ < MAX_PASSWORD_TRIES - 1)
-				{
-					password_counter = 0;
-				} else
-				{
-					id_counter = 0;
-					password_counter = 0;
-					password_tries = 0;
-					state = WAITING_ID;
-				}
+				password_tries++;
+				password_counter = 0;
+				state = WRONG_PASSWORD;
 			}
 		}
 	}

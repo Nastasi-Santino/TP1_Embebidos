@@ -93,7 +93,25 @@ void print(uint8_t * data, uint8_t data_length,
 
 	}
 
-	serial_out(output.seg, output.column, status);
+	static uint8_t current_led = 0;
+	if(status < 4)
+	{
+		current_led = status;
+	} else if(status == FIRST_AND_SECOND_LED)
+	{
+		current_led = (current_column_temp & 0x01) + 1;
+	} else if(status == SECOND_AND_THIRD_LED)
+	{
+		current_led = (current_column_temp & 0x01) + 2;
+	} else if(status == FIRST_AND_THIRD_LED)
+	{
+		current_led = ((current_led == 1) ? 3 : 1);
+	} else if(status == ALL_LEDS_ON)
+	{
+		current_led = ((current_led == 3) ? 1 : current_led + 1);
+	}
+
+	serial_out(output.seg, output.column, current_led);
 	if(current_column_temp == current_column)
 	{
 		update_data = false;
@@ -134,10 +152,10 @@ static uint8_t numberToSegments(uint8_t num, bool decimalPoint)
 		0x5E,  // 18: b c d e g   (letra d)
 		0x30,  // 19: e f         (letra I)
 		0x37,  // 20: a b c e f   (letra N)
-		0xB1,  // 21: a e f g     (letra F)
+		0x71,  // 21: a e f g     (letra F)
     };
 
-    if (num > 19)
+    if (num > 21)
         return 0x00;
 
     return decimalPoint ? segments[num] | 0x80 : segments[num];
