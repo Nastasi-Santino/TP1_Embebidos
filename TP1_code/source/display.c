@@ -2,10 +2,10 @@
 #include "pisr.h"
 #include "serial_out.h"
 
-#define REFRESH_PERIOD_MS 	1000U/REFRESH_RATE_HZ
-#define COLUMN_PERIOD_MS REFRESH_PERIOD_MS/DISPLAY_COUNT
+#define REFRESH_PERIOD_US 	100000U/REFRESH_RATE_HZ
+#define COLUMN_PERIOD_US REFRESH_PERIOD_US/DISPLAY_COUNT
 
-#define COLUMN_PERIOD_TICKS	PISR_MS_TO_TICKS(COLUMN_PERIOD_MS)
+#define COLUMN_PERIOD_TICKS	PISR_US_TO_TICKS(COLUMN_PERIOD_US)
 
 typedef struct
 {
@@ -19,6 +19,8 @@ static uint8_t numberToSegments(uint8_t num, bool private);
 
 static uint8_t current_column;
 static bool update_data;
+static uint8_t DC = 10;
+static bool off_data = false;
 
 bool display_INIT(void)
 {
@@ -35,6 +37,11 @@ bool display_INIT(void)
 	return true;
 }
 
+void setBrightness(uint8_t brightness)
+{
+	DC = brightness;
+}
+
 void print(uint8_t * data, uint8_t data_length,
 		uint8_t selection, uint8_t mode, bool private, uint8_t row, uint8_t status)
 {
@@ -49,7 +56,7 @@ void print(uint8_t * data, uint8_t data_length,
 	uint8_t current_column_temp = current_column;
 	output.column = current_column_temp & 0x03;
 
-	if(mode == EDITING)
+	if(mode == EDITING && !off_data)
 	{
 		if(data_length >= DISPLAY_COUNT - 1)
 		{
@@ -80,7 +87,7 @@ void print(uint8_t * data, uint8_t data_length,
 				output.seg = 0x00;
 			}
 		}
-	} else if(mode == COMPLETE)
+	} else if(mode == COMPLETE && !off_data)
 	{
 		index = current_column_temp + row * DISPLAY_COUNT;
 		if(index < data_length)
@@ -91,6 +98,9 @@ void print(uint8_t * data, uint8_t data_length,
 			output.seg = 0x00;
 		}
 
+	} else
+	{
+		output.seg = 0x00;
 	}
 
 	static uint8_t current_led = 0;
@@ -119,10 +129,26 @@ void print(uint8_t * data, uint8_t data_length,
 
 }
 
+
 void refreshColumns(void)
 {
-	current_column = (current_column + 1) & 0x03;
-	update_data = true;
+	static uint8_t DC_counter;
+	if(DC_counter == DC)
+	{
+		update_data = true;
+		off_data = true;
+	}
+	if(DC_counter == 10)
+	{
+		current_column = (current_column + 1) & 0x03;
+		update_data = true;
+		off_data = false;
+		DC_counter = 0;
+	} else
+	{
+		DC_counter++;
+	}
+
 }
 
 static uint8_t numberToSegments(uint8_t num, bool decimalPoint)
@@ -153,9 +179,10 @@ static uint8_t numberToSegments(uint8_t num, bool decimalPoint)
 		0x30,  // 19: e f         (letra I)
 		0x37,  // 20: a b c e f   (letra N)
 		0x71,  // 21: a e f g     (letra F)
+		0x73,  // 22: a b e f g   (letra P)
     };
 
-    if (num > 21)
+    if (num > 22)
         return 0x00;
 
     return decimalPoint ? segments[num] | 0x80 : segments[num];

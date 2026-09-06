@@ -35,6 +35,7 @@ void changeSelection(bool dir, bool complete);
 void selectionEntered(void);
 bool checkId(void);
 bool matchPassword(void);
+void changeBrightness(bool dir);
 /*******************************************************************************
  * STATIC VARIABLES AND CONST VARIABLES WITH FILE LEVEL SCOPE
  ******************************************************************************/
@@ -52,6 +53,7 @@ enum
 	WAITING_ID,
 	SHOWING_ID,
 	ID_NOT_FOUND,
+	ASKING_PASSWORD,
 	WAITING_PASSWORD,
 	OPENING,
 	WRONG_PASSWORD,
@@ -64,8 +66,9 @@ static uint8_t active_user;
 static uint8_t password_tries;
 
 static uint8_t state;
-
+static uint8_t prev_state;
 static uint8_t row;
+static uint8_t brightness;
 
 static uint8_t id[8];
 static uint8_t id_counter;
@@ -93,6 +96,7 @@ void App_Init (void)
 	timer_INIT();
 
 	state = ASKING_ID;
+	brightness = HUNDRED_PERCENT_BRIGTHNESS;
 
 	users[0] = (user_t){
 	    .id = {6, 0, 3, 2, 6, 7, 0, 9},
@@ -118,6 +122,7 @@ static uint8_t good[4]   = {G, o, o, d};
 static uint8_t wrong[3]  = {X, X, X};
 static uint8_t id_msg[4] = {GUION, I, d, GUION};
 static uint8_t id_nF[4]  = {I, d, n, F};
+static uint8_t password_msg[4] = {P, S, S, d};
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
@@ -159,6 +164,21 @@ void App_Run (void)
 		if(timer_finished())
 		{
 			state = WAITING_ID;
+		} else {
+			if(!timer_counting())
+			{
+				start_timer_ms(2000);
+			}
+		}
+		break;
+	case ASKING_PASSWORD:
+		length = 4;
+		data = password_msg;
+		status = 0;
+		mode = COMPLETE;
+		if(timer_finished())
+		{
+			state = WAITING_PASSWORD;
 		} else {
 			if(!timer_counting())
 			{
@@ -209,6 +229,13 @@ void App_Run (void)
 			}
 		}
 		break;
+	case BRIGHTNESS:
+		length = (prev_state == WAITING_ID) ? id_counter : password_counter;
+		data = (prev_state == WAITING_ID) ? id : password;
+		status = 0;
+		mode = EDITING;
+		private = (prev_state == WAITING_PASSWORD) ? true : false;
+		setBrightness(brightness);
 	default:
 		break;
 	}
@@ -251,6 +278,9 @@ void App_Run (void)
 		} else if(state == WAITING_PASSWORD)
 		{
 			changeSelection(encoderDir(), password_counter == PASSWORD_MAX_LENGHT);
+		} else if(state == BRIGHTNESS)
+		{
+			changeBrightness(encoderDir());
 		}
 	}
 
@@ -265,8 +295,12 @@ void App_Run (void)
 				selectionEntered();
 			} else if(state == SHOWING_ID)
 			{
-				state = WAITING_PASSWORD;
+				state = ASKING_PASSWORD;
 				selection = 0;
+				row = 0;
+			} else if(state == BRIGHTNESS)
+			{
+				state = prev_state;
 			}
 		}
 	} else
@@ -354,7 +388,11 @@ void selectionEntered(void)
 	} else if(selection == 11)
 	{
 		(*counter) = 0;
-	} else if(selection == 14)
+	} else if(selection == 12)
+	{
+		prev_state = state;
+		state = BRIGHTNESS;
+	}else if(selection == 14)
 	{
 		id_counter = 0;
 		password_counter = 0;
@@ -384,13 +422,17 @@ void selectionEntered(void)
 		}
 	}
 
-	if((*counter) < max)
+	if(state != BRIGHTNESS)
 	{
-		selection = 0;
-	} else
-	{
-		selection = 15;
+		if((*counter) < max)
+			{
+				selection = 0;
+			} else
+			{
+				selection = 15;
+			}
 	}
+
 }
 
 
@@ -427,6 +469,28 @@ bool matchPassword(void)
 	return m == users[active_user].password_length;
 }
 
+void changeBrightness(bool dir)
+{
+	if(dir == IS_RIGHT)
+	{
+		if(brightness == HUNDRED_PERCENT_BRIGTHNESS)
+		{
+			brightness = HUNDRED_PERCENT_BRIGTHNESS;
+		} else
+		{
+			brightness++;
+		}
+	} else
+	{
+		if(brightness == TEN_PERCENT_BRIGTHNESS)
+		{
+			brightness = TEN_PERCENT_BRIGTHNESS;
+		} else
+		{
+			brightness--;
+		}
+	}
+}
 
 /*******************************************************************************
  ******************************************************************************/

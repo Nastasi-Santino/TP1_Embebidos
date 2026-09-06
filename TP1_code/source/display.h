@@ -22,6 +22,19 @@ enum{
 	ALL_LEDS_ON
 };
 
+enum{
+	TEN_PERCENT_BRIGTHNESS = 1,
+	TWENTY_PERCENT_BRIGTHNESS,
+	THIRTY_PERCENT_BRIGTHNESS,
+	FORTY_PERCENT_BRIGTHNESS,
+	FIFTY_PERCENT_BRIGTHNESS,
+	SIXTY_PERCENT_BRIGTHNESS,
+	SEVENTY_PERCENT_BRIGTHNESS,
+	EIGHTY_PERCENT_BRIGTHNESS,
+	NINETY_PERCENT_BRIGTHNESS,
+	HUNDRED_PERCENT_BRIGTHNESS
+};
+
 /*******************************************************************************
  * LETTERS
  ******************************************************************************/
@@ -34,7 +47,8 @@ enum{
 #define I 19
 #define n 20
 #define F 21
-
+#define P 22
+#define S 5
 /*******************************************************************************
  * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
  ******************************************************************************/
@@ -53,5 +67,7 @@ bool display_INIT(void);
 
 void print(uint8_t * data, uint8_t data_length,
 		uint8_t selection, uint8_t mode, bool private, uint8_t row, uint8_t status);
+
+void setBrightness(uint8_t brightness);
 
 #endif /* DISPLAY_H_ */
