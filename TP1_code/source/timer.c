@@ -26,6 +26,11 @@ void start_timer_ms(uint32_t time_ms)
 	finished = false;
 }
 
+void reset_timer(void)
+{
+	counter = 0;
+}
+
 bool timer_finished(void)
 {
 	if(finished)

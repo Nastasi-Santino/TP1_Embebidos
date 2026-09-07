@@ -64,6 +64,7 @@ enum
 static user_t users[3];
 static uint8_t active_user;
 static uint8_t password_tries;
+static bool first_in_state = true;
 
 static uint8_t state;
 static uint8_t prev_state;
@@ -132,6 +133,7 @@ void App_Run (void)
 	uint8_t length;
 	uint8_t * data;
 
+
 	switch(state)
 	{
 	case ASKING_ID:
@@ -143,9 +145,10 @@ void App_Run (void)
 		{
 			state = WAITING_ID;
 		} else {
-			if(!timer_counting())
+			if(!timer_counting() || first_in_state == true)
 			{
 				start_timer_ms(2000);
+				first_in_state = false;
 			}
 		}
 		break;
@@ -153,8 +156,20 @@ void App_Run (void)
 	case SHOWING_ID:
 		length = id_counter;
 		data = id;
-		status = SECOND_AND_THIRD_LED;
+		status = ONLY_FIRST_LED;
 		mode = (state == SHOWING_ID) ? COMPLETE : EDITING;
+		if(timer_finished()){
+			state = ASKING_ID;
+			id_counter = 0;
+			password_counter = 0;
+		} else
+		{
+			if(!timer_counting() || first_in_state == true)
+			{
+				start_timer_ms(20000);
+				first_in_state = false;
+			}
+		}
 		break;
 	case ID_NOT_FOUND:
 		length = 4;
@@ -164,46 +179,64 @@ void App_Run (void)
 		if(timer_finished())
 		{
 			state = WAITING_ID;
-		} else {
-			if(!timer_counting())
+		} else
+		{
+			if(!timer_counting() || first_in_state == true)
 			{
 				start_timer_ms(2000);
+				first_in_state = false;
 			}
 		}
 		break;
 	case ASKING_PASSWORD:
 		length = 4;
 		data = password_msg;
-		status = 0;
+		status = FIRST_AND_SECOND_LED;
 		mode = COMPLETE;
 		if(timer_finished())
 		{
 			state = WAITING_PASSWORD;
 		} else {
-			if(!timer_counting())
+			if(!timer_counting() || first_in_state == true)
 			{
 				start_timer_ms(2000);
+				first_in_state = false;
 			}
 		}
 		break;
 	case WAITING_PASSWORD:
 		length = password_counter;
 		data = password;
-		status = 0;
+		status = FIRST_AND_SECOND_LED;
 		mode = EDITING;
+		if(timer_finished()){
+			state = ASKING_ID;
+			id_counter = 0;
+			password_counter = 0;
+		} else
+		{
+			if(!timer_counting() || first_in_state == true)
+			{
+				start_timer_ms(20000);
+				first_in_state = false;
+			}
+		}
 		break;
 	case OPENING:
 		length = 4;
 		data = good;
-		status = 3;
+		status = ALL_LEDS_ON;
 		mode = COMPLETE;
 		if(timer_finished())
 		{
+			id_counter = 0;
+			password_counter = 0;
 			state = ASKING_ID;
 		} else {
-			if(!timer_counting())
+			if(!timer_counting() || first_in_state == true)
 			{
 				start_timer_ms(5000);
+				first_in_state = false;
 			}
 		}
 		break;
@@ -223,19 +256,21 @@ void App_Run (void)
 				id_counter = 0;
 			}
 		} else {
-			if(!timer_counting())
+			if(!timer_counting() || first_in_state == true)
 			{
 				start_timer_ms(1000);
+				first_in_state = false;
 			}
 		}
 		break;
 	case BRIGHTNESS:
 		length = (prev_state == WAITING_ID) ? id_counter : password_counter;
 		data = (prev_state == WAITING_ID) ? id : password;
-		status = 0;
+		status = FIRST_AND_THIRD_LED;
 		mode = EDITING;
 		private = (prev_state == WAITING_PASSWORD) ? true : false;
 		setBrightness(brightness);
+		break;
 	default:
 		break;
 	}
@@ -293,14 +328,17 @@ void App_Run (void)
 			if(state == WAITING_ID || state == WAITING_PASSWORD)
 			{
 				selectionEntered();
+				reset_timer();
 			} else if(state == SHOWING_ID)
 			{
 				state = ASKING_PASSWORD;
 				selection = 0;
 				row = 0;
+				first_in_state = true;
 			} else if(state == BRIGHTNESS)
 			{
 				state = prev_state;
+				first_in_state = true;
 			}
 		}
 	} else
@@ -392,11 +430,21 @@ void selectionEntered(void)
 	{
 		prev_state = state;
 		state = BRIGHTNESS;
+		first_in_state = true;
+	}else if(selection == 13)
+	{
+		if(state == WAITING_PASSWORD)
+		{
+			password_counter = 0;
+			state = CHANGING_PASSWORD;
+			first_in_state = true;
+		}
 	}else if(selection == 14)
 	{
 		id_counter = 0;
 		password_counter = 0;
 		state = WAITING_ID;
+		first_in_state = true;
 	} else if(selection == 15)
 	{
 		if(state == WAITING_ID)
@@ -404,20 +452,25 @@ void selectionEntered(void)
 			if(checkId())
 			{
 				state = SHOWING_ID;
+				first_in_state = true;
 			} else
 			{
 				id_counter = 0;
+				state = ID_NOT_FOUND;
+				first_in_state = true;
 			}
 		} else if(state == WAITING_PASSWORD)
 		{
 			if(matchPassword())
 			{
 				state = OPENING;
+				first_in_state = true;
 			} else
 			{
 				password_tries++;
 				password_counter = 0;
 				state = WRONG_PASSWORD;
+				first_in_state = true;
 			}
 		}
 	}
