@@ -39,16 +39,22 @@ enum{
  * LETTERS
  ******************************************************************************/
 
+#define C 13
 #define G 6
 #define o 17
 #define d 18
 #define X 11
 #define GUION 16
 #define I 19
+#define l 19
 #define n 20
 #define F 21
 #define P 22
 #define S 5
+#define a 23
+#define t 24
+#define APOSTROFE 25
+#define E 26
 /*******************************************************************************
  * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
  ******************************************************************************/

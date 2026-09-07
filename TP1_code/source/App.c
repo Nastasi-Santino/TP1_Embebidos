@@ -36,6 +36,8 @@ void selectionEntered(void);
 bool checkId(void);
 bool matchPassword(void);
 void changeBrightness(bool dir);
+void adminMenu(bool dir);
+void changeIdMenuAdmin(bool dir);
 /*******************************************************************************
  * STATIC VARIABLES AND CONST VARIABLES WITH FILE LEVEL SCOPE
  ******************************************************************************/
@@ -58,13 +60,18 @@ enum
 	OPENING,
 	WRONG_PASSWORD,
 	CHANGING_PASSWORD,
-	BRIGHTNESS
+	BRIGHTNESS,
+	ADMIN_MODE
 };
 
-static user_t users[3];
+static user_t users[10];
+static uint8_t users_cant;
 static uint8_t active_user;
 static uint8_t password_tries;
 static bool first_in_state = true;
+static bool adding_user = false;
+
+static uint8_t admin_sub_mode;
 
 static uint8_t state;
 static uint8_t prev_state;
@@ -100,10 +107,11 @@ void App_Init (void)
 	brightness = HUNDRED_PERCENT_BRIGTHNESS;
 
 	users[0] = (user_t){
-	    .id = {6, 0, 3, 2, 6, 7, 0, 9},
-	    .password = {6, 5, 1, 1},
+	    .id = {6, 0, 3, 1, 6, 7, 0, 9},
+	    .password = {0, 0, 0, 0, 0},
 		.password_length = 4
 	};
+
 
 	users[1] = (user_t){
 	    .id = {4, 5, 4, 8, 3, 2, 0, 0},
@@ -116,6 +124,8 @@ void App_Init (void)
 	    .password = {0, 4, 2, 8},
 		.password_length = 4
 	};
+
+	users_cant = 2;
 }
 
 
@@ -124,6 +134,12 @@ static uint8_t wrong[3]  = {X, X, X};
 static uint8_t id_msg[4] = {GUION, I, d, GUION};
 static uint8_t id_nF[4]  = {I, d, n, F};
 static uint8_t password_msg[4] = {P, S, S, d};
+static uint8_t cant[4] = {C, a, n, t};
+static uint8_t ids[4] = {I, d, APOSTROFE,S};
+static uint8_t add[3] = {a, d, d};
+static uint8_t dlt[3] = {d, l, t};
+static uint8_t exit[4] = {E, X, I, t};
+
 /* Función que se llama constantemente en un ciclo infinito */
 void App_Run (void)
 {
@@ -132,7 +148,6 @@ void App_Run (void)
 	bool private = (state == WAITING_PASSWORD) ? true : false;
 	uint8_t length;
 	uint8_t * data;
-
 
 	switch(state)
 	{
@@ -205,6 +220,7 @@ void App_Run (void)
 		}
 		break;
 	case WAITING_PASSWORD:
+	case CHANGING_PASSWORD:
 		length = password_counter;
 		data = password;
 		status = FIRST_AND_SECOND_LED;
@@ -271,6 +287,50 @@ void App_Run (void)
 		private = (prev_state == WAITING_PASSWORD) ? true : false;
 		setBrightness(brightness);
 		break;
+	case ADMIN_MODE:
+		if(admin_sub_mode == 0)
+		{
+			length = 4;
+			data = cant;
+			status = SECOND_AND_THIRD_LED;
+			mode = COMPLETE;
+		} else if (admin_sub_mode == 1)
+		{
+			length = 4;
+			data = ids;
+			status = SECOND_AND_THIRD_LED;
+			mode = COMPLETE;
+		} else if(admin_sub_mode == 2)
+		{
+			length = 3;
+			data = add;
+			status = SECOND_AND_THIRD_LED;
+			mode = COMPLETE;
+		} else if(admin_sub_mode == 3)
+		{
+			length = 3;
+			data = dlt;
+			status = SECOND_AND_THIRD_LED;
+			mode = COMPLETE;
+		} else if(admin_sub_mode == 4)
+		{
+			length = 4;
+			data = exit;
+			status = SECOND_AND_THIRD_LED;
+			mode = COMPLETE;
+		} else if(admin_sub_mode == 5)
+		{
+			length = 1;
+			data = &users_cant;
+			status = SECOND_AND_THIRD_LED;
+			mode = COMPLETE;
+		} else if(admin_sub_mode == 6 || admin_sub_mode == 7)
+		{
+			length = 0;
+			status = SECOND_AND_THIRD_LED;
+			mode = EDITING;
+		}
+		break;
 	default:
 		break;
 	}
@@ -310,12 +370,22 @@ void App_Run (void)
 		} else if(state == SHOWING_ID)
 		{
 			row = (row + 1) & 0x01;
-		} else if(state == WAITING_PASSWORD)
+		} else if(state == WAITING_PASSWORD || state == CHANGING_PASSWORD)
 		{
 			changeSelection(encoderDir(), password_counter == PASSWORD_MAX_LENGHT);
 		} else if(state == BRIGHTNESS)
 		{
 			changeBrightness(encoderDir());
+		} else if(state == ADMIN_MODE)
+		{
+			if(admin_sub_mode < 5)
+			{
+				adminMenu(encoderDir());
+			} else if(admin_sub_mode == 6 || admin_sub_mode == 7)
+			{
+				changeIdMenuAdmin(encoderDir());
+			}
+
 		}
 	}
 
@@ -325,20 +395,101 @@ void App_Run (void)
 		if(!button_pressed_flag)
 		{
 			button_pressed_flag = 1;
-			if(state == WAITING_ID || state == WAITING_PASSWORD)
+			if(state == WAITING_ID || state == WAITING_PASSWORD || state == CHANGING_PASSWORD)
 			{
 				selectionEntered();
 				reset_timer();
 			} else if(state == SHOWING_ID)
 			{
-				state = ASKING_PASSWORD;
-				selection = 0;
-				row = 0;
-				first_in_state = true;
+				if(prev_state == ADMIN_MODE)
+				{
+					state = ADMIN_MODE;
+					prev_state = SHOWING_ID;
+					row = 0;
+				} else
+				{
+					state = ASKING_PASSWORD;
+					selection = 0;
+					row = 0;
+					first_in_state = true;
+				}
+
 			} else if(state == BRIGHTNESS)
 			{
 				state = prev_state;
 				first_in_state = true;
+			} else if(state == ADMIN_MODE)
+			{
+				if(admin_sub_mode == 0)
+				{
+					admin_sub_mode = 5;
+				} else if(admin_sub_mode == 1)
+				{
+					admin_sub_mode = 6;
+					if(users_cant != 0)
+					{
+						selection = 1;
+					} else
+					{
+						selection = E;
+					}
+				} else if(admin_sub_mode == 2){
+					adding_user = true;
+					id_counter = 0;
+					password_counter = 0;
+					selection = 0;
+					state = ASKING_ID;
+				} else if(admin_sub_mode == 3)
+				{
+					admin_sub_mode = 7;
+					if(users_cant != 0)
+					{
+						selection = 1;
+					} else
+					{
+						selection = E;
+					}
+
+				} else if(admin_sub_mode == 4)
+				{
+					id_counter = 0;
+					password_counter = 0;
+					selection = 0;
+					state = ASKING_ID;
+				}else if(admin_sub_mode == 5)
+				{
+					admin_sub_mode = 0;
+				}else if(admin_sub_mode == 6)
+				{
+					if(selection == E)
+					{
+						admin_sub_mode = 1;
+					} else
+					{
+						for(int i = 0; i < ID_LENGTH; i++)
+						{
+							id[i] = users[selection].id[i];
+						}
+						id_counter = ID_LENGTH;
+						state = SHOWING_ID;
+						prev_state = ADMIN_MODE;
+					}
+
+				} else if (admin_sub_mode == 7)
+				{
+					if(selection == E)
+					{
+						admin_sub_mode = 3;
+					} else
+					{
+						for(int i = selection; i < users_cant; i++)
+						{
+							users[i] = users[i+1];
+						}
+						users_cant--;
+						admin_sub_mode = 3;
+					}
+				}
 			}
 		}
 	} else
@@ -393,6 +544,48 @@ void changeSelection(bool dir, bool complete)
 	}
 }
 
+void changeIdMenuAdmin(bool dir)
+{
+	uint8_t min = 1;
+	uint8_t max;
+	if(users_cant == 0)
+	{
+		min = E;
+		max = E;
+	} else
+	{
+		min = E;
+		max = users_cant;
+	}
+
+
+	if(dir == IS_RIGHT)
+	{
+		if(selection == max)
+		{
+			selection = E;
+		} else if(selection == E)
+		{
+			selection = min;
+		} else
+		{
+			selection++;
+		}
+	} else
+	{
+		if(selection == min)
+		{
+			selection = E;
+		} else if(selection == E)
+		{
+			selection = max;
+		} else
+		{
+			selection--;
+		}
+	}
+}
+
 
 void selectionEntered(void)
 {
@@ -404,7 +597,7 @@ void selectionEntered(void)
 		counter = &id_counter;
 		data = id;
 		max = ID_LENGTH;
-	} else if(state == WAITING_PASSWORD)
+	} else if(state == WAITING_PASSWORD || state == CHANGING_PASSWORD)
 	{
 		counter = &password_counter;
 		data = password;
@@ -435,9 +628,18 @@ void selectionEntered(void)
 	{
 		if(state == WAITING_PASSWORD)
 		{
+			if(matchPassword())
+			{
+				password_counter = 0;
+				state = CHANGING_PASSWORD;
+				first_in_state = true;
+			} else
+			{
+			password_tries++;
 			password_counter = 0;
-			state = CHANGING_PASSWORD;
+			state = WRONG_PASSWORD;
 			first_in_state = true;
+			}
 		}
 	}else if(selection == 14)
 	{
@@ -449,7 +651,7 @@ void selectionEntered(void)
 	{
 		if(state == WAITING_ID)
 		{
-			if(checkId())
+			if(checkId() || adding_user)
 			{
 				state = SHOWING_ID;
 				first_in_state = true;
@@ -461,10 +663,36 @@ void selectionEntered(void)
 			}
 		} else if(state == WAITING_PASSWORD)
 		{
-			if(matchPassword())
+			if(matchPassword() || adding_user)
 			{
-				state = OPENING;
-				first_in_state = true;
+				if(active_user == 0 && !adding_user)
+				{
+					state = ADMIN_MODE;
+					selection = 0;
+					first_in_state = true;
+				} else if(adding_user)
+				{
+					for(int i = 0; i < ID_LENGTH; i++)
+					{
+						users[users_cant + 1].id[i] = id[i];
+						if(i < password_counter)
+						{
+							users[users_cant + 1].password[i] = password[i];
+						}
+					}
+					users[users_cant + 1].password_length = password_counter;
+					users_cant++;
+					adding_user = false;
+					state = OPENING;
+					id_counter = 0;
+					password_counter = 0;
+					admin_sub_mode = 0;
+				} else
+				{
+					state = OPENING;
+					first_in_state = true;
+				}
+
 			} else
 			{
 				password_tries++;
@@ -472,6 +700,18 @@ void selectionEntered(void)
 				state = WRONG_PASSWORD;
 				first_in_state = true;
 			}
+		} else if(state == CHANGING_PASSWORD)
+		{
+			for(int i = 0; i < password_counter; i++)
+			{
+				users[active_user].password[i] = password[i];
+			}
+			users[active_user].password_length = password_counter;
+			state = OPENING;
+			id_counter = 0;
+			password_counter = 0;
+			first_in_state = true;
+			selection = 0;
 		}
 	}
 
@@ -492,7 +732,7 @@ void selectionEntered(void)
 bool checkId(void)
 {
 	bool existing_id = false;
-	for(int i = 0; i < USERS_IN_SYSTEM; i++)
+	for(int i = 0; i <= users_cant; i++)
 	{
 		uint8_t j = 0;
 		while((id[j] == users[i].id[j]) && (j < ID_LENGTH))
@@ -541,6 +781,29 @@ void changeBrightness(bool dir)
 		} else
 		{
 			brightness--;
+		}
+	}
+}
+
+void adminMenu(bool dir)
+{
+	if(dir == IS_RIGHT)
+	{
+		if(admin_sub_mode == 4)
+		{
+			admin_sub_mode = 0;
+		} else
+		{
+			admin_sub_mode++;
+		}
+	} else
+	{
+		if(admin_sub_mode == 0)
+		{
+			admin_sub_mode = 4;
+		} else
+		{
+			admin_sub_mode--;
 		}
 	}
 }
