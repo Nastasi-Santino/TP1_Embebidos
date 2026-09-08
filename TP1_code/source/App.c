@@ -8,8 +8,7 @@
  * INCLUDE HEADER FILES
  ******************************************************************************/
 
-#include "board.h"        /* Hardware and pin configuration definitions */
-#include "card_reader.h"  /* Magnetic/RFID card reader driver */
+#include "card_reader.h"  /* Magnetic card reader driver */
 #include "encoder.h"      /* Rotary encoder driver for UI navigation */
 #include "card_decoder.h" /* Parser for raw card data */
 #include "display.h"      /* Display driver interface */
@@ -21,19 +20,11 @@
  ******************************************************************************/
 
 #define SELECTION_MODES      16  /**< Total number of selectable UI modes */
-#define ID_LENGTH             8  /**< Required byte/digit length for user IDs */
+#define ID_LENGTH             8  /**< Required digit length for user IDs */
 #define PASSWORD_MIN_LENGHT   4  /**< Minimum password length limit */
 #define PASSWORD_MAX_LENGHT   5  /**< Maximum password length limit */
-#define USERS_IN_SYSTEM       3  /**< Total registered user capacity limit */
+#define USERS_IN_SYSTEM_MAX   10 /**< Total registered user capacity limit */
 #define MAX_PASSWORD_TRIES    3  /**< Max failed login attempts allowed before lockout */
-
-/* Keypad / Encoder Action Mappings for selectionEntered */
-#define KEY_BACKSPACE        10  /**< Action: Delete last digit */
-#define KEY_CLEAR            11  /**< Action: Clear active buffer */
-#define KEY_BRIGHTNESS       12  /**< Action: Open brightness adjustment */
-#define KEY_CHANGE_PASS      13  /**< Action: Initiate password change */
-#define KEY_CANCEL           14  /**< Action: Cancel and return to start */
-#define KEY_ENTER            15  /**< Action: Confirm/Submit input */
 
 /*******************************************************************************
  * FUNCTION PROTOTYPES FOR PRIVATE FUNCTIONS WITH FILE LEVEL SCOPE
@@ -42,44 +33,44 @@
 /**
  * @brief Updates the menu selection index based on encoder rotation.
  * @param dir Rotation direction (true: clockwise / false: counter-clockwise).
- * @param complete Indicates if a full mechanical step/detent was completed.
+ * @param complete Indicates if the data is complete. So the enter option should appear.
  */
-void changeSelection(bool dir, bool complete);
+static void changeSelection(bool dir, bool complete);
 
 /**
- * @brief Handles user input confirmation (e.g., encoder button press).
+ * @brief Handles user input confirmation.
  */
-void selectionEntered(void);
+static void selectionEntered(void);
 
 /**
  * @brief Verifies if the entered ID exists in the user database.
  * @return True if valid ID found, false otherwise.
  */
-bool checkId(void);
+static bool checkId(void);
 
 /**
  * @brief Checks if the entered password matches the active user's credentials.
  * @return True if password is correct, false otherwise.
  */
-bool matchPassword(void);
+static bool matchPassword(void);
 
 /**
  * @brief Adjusts the display brightness step-by-step.
- * @param dir Direction to shift brightness (true: increase / false: decrease).
+ * @param dir Direction to shift brightness.
  */
-void changeBrightness(bool dir);
+static void changeBrightness(bool dir);
 
 /**
  * @brief Cycles through admin menu options based on encoder direction.
- * @param dir Direction of rotation (true: next / false: previous).
+ * @param dir Direction of rotation.
  */
-void adminMenu(bool dir);
+static void adminMenu(bool dir);
 
 /**
  * @brief Navigates the stored user ID list within the admin menu.
- * @param dir Direction of rotation (true: next ID / false: previous ID).
+ * @param dir Direction of rotation.
  */
-void changeIdMenuAdmin(bool dir);
+static void changeIdMenuAdmin(bool dir);
 
 /**
  * @brief Helper function to start state timeouts cleanly without code duplication.
@@ -98,11 +89,11 @@ typedef struct
 {
     uint8_t id[8];          /**< Array storing user ID digits */
     uint8_t password[5];    /**< Array storing user password digits */
-    uint8_t password_length;/**< Actual length of user's password */
+    uint8_t password_length;/**< Actual length of user's password (4 or 5)*/
 } user_t;
 
 /**
- * @brief System Finite State Machine (FSM) states.
+ * @brief System Finite State Machine states.
  */
 enum
 {
@@ -139,8 +130,8 @@ typedef enum
  ******************************************************************************/
 
 /* User Database & Administration Flags */
-static user_t users[10];                     /**< System database of registered users (up to 10) */
-static uint8_t users_cant;                   /**< Current count of registered users in system */
+static user_t users[USERS_IN_SYSTEM_MAX];    /**< System database of registered users */
+static uint8_t users_cant;                   /**< Current count of registered users in system (without Admin) */
 static uint8_t active_user;                  /**< Index of currently identified user */
 static uint8_t password_tries;               /**< Consecutive failed password attempt counter */
 static bool first_in_state = true;           /**< Flag indicating first entry into an FSM state */
@@ -175,12 +166,12 @@ static uint8_t good[4]         = {G, o, o, d};         /**< Display: "Good" (Acc
 static uint8_t wrong[3]        = {X, X, X};            /**< Display: "XXX" (Access denied) */
 static uint8_t id_msg[4]       = {GUION, I, d, GUION}; /**< Display: "-Id-" (ID prompt) */
 static uint8_t id_nF[4]        = {I, d, n, F};         /**< Display: "IdnF" (ID not found) */
-static uint8_t password_msg[4] = {P, S, S, d};        /**< Display: "PSSd" (Password prompt) */
+static uint8_t password_msg[4] = {P, S, S, d};         /**< Display: "PSSd" (Password prompt) */
 static uint8_t cant[4]         = {C, a, n, t};         /**< Display: "Cant" (User count menu item) */
 static uint8_t ids[4]          = {I, d, APOSTROFE,S};  /**< Display: "Id's" (View IDs menu item) */
 static uint8_t add[3]          = {a, d, d};            /**< Display: "add" (Add user menu item) */
 static uint8_t dlt[3]          = {d, l, t};            /**< Display: "dlt" (Delete user menu item) */
-static uint8_t exit_msg[4]         = {E, X, I, t};         /**< Display: "EXIt" (Exit admin menu item) */
+static uint8_t exit_msg[4]     = {E, X, I, t};         /**< Display: "EXIt" (Exit admin menu item) */
 
 
 /*******************************************************************************
@@ -208,7 +199,7 @@ void App_Init (void)
     users[0] = (user_t){
         .id = {6, 0, 3, 1, 6, 7, 0, 9},
         .password = {0, 0, 0, 0, 0},
-        .password_length = 4
+        .password_length = 5
     };
 
     users[1] = (user_t){
@@ -251,7 +242,7 @@ void App_Run (void)
         status = 0;
         mode = COMPLETE;
 
-        /* Display message for 2 seconds before accepting ID input */
+        /* Display message for 2 seconds before waiting ID input */
         if(timer_finished())
         {
             state = WAITING_ID;
@@ -371,6 +362,7 @@ void App_Run (void)
             {
                 state = ASKING_ID;        /* Lockout: reset to start */
                 id_counter = 0;
+                password_tries = 0;
             }
         } else
         {
@@ -554,6 +546,7 @@ void App_Run (void)
                 first_in_state = true;
             } else if(state == ADMIN_MODE)
             {
+            	reset_timer();
                 switch(admin_sub_mode)
                 {
                 /* Action 'Cant': Open screen displaying user quantity */
@@ -724,7 +717,7 @@ void changeIdMenuAdmin(bool dir)
         max = E;
     } else
     {
-        min = E;
+        min = 1;
         max = users_cant;
     }
 
@@ -878,6 +871,7 @@ void selectionEntered(void)
                     users_cant++;
                     adding_user = false;
                     state = OPENING;
+                    first_in_state = true;
                     id_counter = 0;
                     password_counter = 0;
                     admin_sub_mode = ADMIN_SUB_CANT;

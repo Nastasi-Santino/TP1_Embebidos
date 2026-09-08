@@ -64,6 +64,15 @@ enum
  * CHARACTER TO TABLE INDEX ALIASES
  ******************************************************************************/
 
+/* Keypad / Encoder Action Mappings for selectionEntered */
+#define KEY_BACKSPACE        10  /**< Action: Delete last digit */
+#define KEY_CLEAR            11  /**< Action: Clear active buffer */
+#define KEY_BRIGHTNESS       12  /**< Action: Open brightness adjustment */
+#define KEY_CHANGE_PASS      13  /**< Action: Initiate password change */
+#define KEY_CANCEL           14  /**< Action: Cancel and return to start */
+#define KEY_ENTER            15  /**< Action: Confirm/Submit input */
+
+
 #define C          13  /**< Map symbol 'C' to lookup table index 13 */
 #define G          6   /**< Map symbol 'G' to lookup table index 6 */
 #define o          17  /**< Map symbol 'o' to lookup table index 17 */
