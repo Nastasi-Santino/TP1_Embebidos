@@ -27,6 +27,14 @@
 #define USERS_IN_SYSTEM       3  /**< Total registered user capacity limit */
 #define MAX_PASSWORD_TRIES    3  /**< Max failed login attempts allowed before lockout */
 
+/* Keypad / Encoder Action Mappings for selectionEntered */
+#define KEY_BACKSPACE        10  /**< Action: Delete last digit */
+#define KEY_CLEAR            11  /**< Action: Clear active buffer */
+#define KEY_BRIGHTNESS       12  /**< Action: Open brightness adjustment */
+#define KEY_CHANGE_PASS      13  /**< Action: Initiate password change */
+#define KEY_CANCEL           14  /**< Action: Cancel and return to start */
+#define KEY_ENTER            15  /**< Action: Confirm/Submit input */
+
 /*******************************************************************************
  * FUNCTION PROTOTYPES FOR PRIVATE FUNCTIONS WITH FILE LEVEL SCOPE
  ******************************************************************************/
@@ -73,8 +81,14 @@ void adminMenu(bool dir);
  */
 void changeIdMenuAdmin(bool dir);
 
+/**
+ * @brief Helper function to start state timeouts cleanly without code duplication.
+ * @param ms Delay duration in milliseconds.
+ */
+static void start_state_timer(uint32_t ms);
+
 /*******************************************************************************
- * STATIC VARIABLES AND CONST VARIABLES WITH FILE LEVEL SCOPE
+ * PRIVATE DATA TYPES AND ENUMERATIONS
  ******************************************************************************/
 
 /**
@@ -105,6 +119,25 @@ enum
     ADMIN_MODE          /**< System administration menu screen */
 };
 
+/**
+ * @brief Admin menu sub-modes for navigation and interaction screens.
+ */
+typedef enum
+{
+    ADMIN_SUB_CANT = 0,     /**< Menu option: "Cant" (User count option) */
+    ADMIN_SUB_IDS,          /**< Menu option: "Id's" (View IDs option) */
+    ADMIN_SUB_ADD,          /**< Menu option: "add" (Add user option) */
+    ADMIN_SUB_DLT,          /**< Menu option: "dlt" (Delete user option) */
+    ADMIN_SUB_EXIT,         /**< Menu option: "EXIt" (Exit admin menu) */
+    ADMIN_SUB_SHOW_CANT,    /**< Display screen: Show total user count value */
+    ADMIN_SUB_SELECT_ID,    /**< Selection screen: View specific user ID */
+    ADMIN_SUB_DELETE_ID     /**< Selection screen: Choose user ID to delete */
+} admin_submode_t;
+
+/*******************************************************************************
+ * STATIC VARIABLES AND CONST VARIABLES WITH FILE LEVEL SCOPE
+ ******************************************************************************/
+
 /* User Database & Administration Flags */
 static user_t users[10];                     /**< System database of registered users (up to 10) */
 static uint8_t users_cant;                   /**< Current count of registered users in system */
@@ -133,6 +166,22 @@ static uint8_t password_counter;             /**< Count of received password dig
 /* General UI & System Status Flags */
 static uint8_t selection;                    /**< Currently selected menu item index */
 static uint8_t status;                       /**< System status and LED indicator flags */
+
+/*******************************************************************************
+ * DISPLAY TEXT BUFFERS & CONSTANTS
+ ******************************************************************************/
+
+static uint8_t good[4]         = {G, o, o, d};         /**< Display: "Good" (Access granted) */
+static uint8_t wrong[3]        = {X, X, X};            /**< Display: "XXX" (Access denied) */
+static uint8_t id_msg[4]       = {GUION, I, d, GUION}; /**< Display: "-Id-" (ID prompt) */
+static uint8_t id_nF[4]        = {I, d, n, F};         /**< Display: "IdnF" (ID not found) */
+static uint8_t password_msg[4] = {P, S, S, d};        /**< Display: "PSSd" (Password prompt) */
+static uint8_t cant[4]         = {C, a, n, t};         /**< Display: "Cant" (User count menu item) */
+static uint8_t ids[4]          = {I, d, APOSTROFE,S};  /**< Display: "Id's" (View IDs menu item) */
+static uint8_t add[3]          = {a, d, d};            /**< Display: "add" (Add user menu item) */
+static uint8_t dlt[3]          = {d, l, t};            /**< Display: "dlt" (Delete user menu item) */
+static uint8_t exit[4]         = {E, X, I, t};         /**< Display: "EXIt" (Exit admin menu item) */
+
 
 /*******************************************************************************
  * GLOBAL FUNCTION DEFINITIONS
@@ -178,21 +227,6 @@ void App_Init (void)
 }
 
 
-/*******************************************************************************
- * DISPLAY TEXT BUFFERS & CONSTANTS
- ******************************************************************************/
-
-static uint8_t good[4]         = {G, o, o, d};         /**< Display: "Good" (Access granted) */
-static uint8_t wrong[3]        = {X, X, X};            /**< Display: "XXX" (Access denied) */
-static uint8_t id_msg[4]       = {GUION, I, d, GUION}; /**< Display: "-Id-" (ID prompt) */
-static uint8_t id_nF[4]        = {I, d, n, F};         /**< Display: "IdnF" (ID not found) */
-static uint8_t password_msg[4] = {P, S, S, d};        /**< Display: "PSSd" (Password prompt) */
-static uint8_t cant[4]         = {C, a, n, t};         /**< Display: "Cant" (User count menu item) */
-static uint8_t ids[4]          = {I, d, APOSTROFE,S};  /**< Display: "Id's" (View IDs menu item) */
-static uint8_t add[3]          = {a, d, d};            /**< Display: "add" (Add user menu item) */
-static uint8_t dlt[3]          = {d, l, t};            /**< Display: "dlt" (Delete user menu item) */
-static uint8_t exit[4]         = {E, X, I, t};         /**< Display: "EXIt" (Exit admin menu item) */
-
 /**
  * @brief Main execution loop called continuously in an infinite main loop.
  * @details Manages system state transitions, timers, screen rendering, card reader
@@ -200,14 +234,13 @@ static uint8_t exit[4]         = {E, X, I, t};         /**< Display: "EXIt" (Exi
  */
 void App_Run (void)
 {
-
     uint8_t mode;
     bool private = (state == WAITING_PASSWORD) ? true : false; /* Obfuscate input for passwords */
     uint8_t length;
     uint8_t * data;
 
     /* =========================================================================
-     * FINITE STATE MACHINE (FSM)
+     * FINITE STATE MACHINE (FSM) - UI & TIMERS
      * ========================================================================= */
     switch(state)
     {
@@ -217,17 +250,14 @@ void App_Run (void)
         data = id_msg;
         status = 0;
         mode = COMPLETE;
-        
+
         /* Display message for 2 seconds before accepting ID input */
         if(timer_finished())
         {
             state = WAITING_ID;
-        } else {
-            if(!timer_counting() || first_in_state == true)
-            {
-                start_timer_ms(2000);
-                first_in_state = false;
-            }
+        } else
+        {
+            start_state_timer(2000);
         }
         break;
 
@@ -238,19 +268,16 @@ void App_Run (void)
         data = id;
         status = ONLY_FIRST_LED;
         mode = (state == SHOWING_ID) ? COMPLETE : EDITING;
-        
+
         /* 20-second inactivity timeout: reset to ID prompt */
-        if(timer_finished()){
+        if(timer_finished())
+        {
             state = ASKING_ID;
             id_counter = 0;
             password_counter = 0;
         } else
         {
-            if(!timer_counting() || first_in_state == true)
-            {
-                start_timer_ms(20000);
-                first_in_state = false;
-            }
+            start_state_timer(20000);
         }
         break;
 
@@ -260,18 +287,14 @@ void App_Run (void)
         data = id_nF;
         status = 0;
         mode = COMPLETE;
-        
+
         /* Hold error screen for 2 seconds then return to ID entry */
         if(timer_finished())
         {
             state = WAITING_ID;
         } else
         {
-            if(!timer_counting() || first_in_state == true)
-            {
-                start_timer_ms(2000);
-                first_in_state = false;
-            }
+            start_state_timer(2000);
         }
         break;
 
@@ -281,17 +304,14 @@ void App_Run (void)
         data = password_msg;
         status = FIRST_AND_SECOND_LED;
         mode = COMPLETE;
-        
+
         /* Hold prompt for 2 seconds then enable password input */
         if(timer_finished())
         {
             state = WAITING_PASSWORD;
-        } else {
-            if(!timer_counting() || first_in_state == true)
-            {
-                start_timer_ms(2000);
-                first_in_state = false;
-            }
+        } else
+        {
+            start_state_timer(2000);
         }
         break;
 
@@ -302,19 +322,16 @@ void App_Run (void)
         data = password;
         status = FIRST_AND_SECOND_LED;
         mode = EDITING;
-        
+
         /* 20-second inactivity timeout: reset to initial state */
-        if(timer_finished()){
+        if(timer_finished())
+        {
             state = ASKING_ID;
             id_counter = 0;
             password_counter = 0;
         } else
         {
-            if(!timer_counting() || first_in_state == true)
-            {
-                start_timer_ms(20000);
-                first_in_state = false;
-            }
+            start_state_timer(20000);
         }
         break;
 
@@ -324,19 +341,16 @@ void App_Run (void)
         data = good;
         status = ALL_LEDS_ON;
         mode = COMPLETE;
-        
+
         /* Keep unlocked for 5 seconds, then reset system */
         if(timer_finished())
         {
             id_counter = 0;
             password_counter = 0;
             state = ASKING_ID;
-        } else {
-            if(!timer_counting() || first_in_state == true)
-            {
-                start_timer_ms(5000);
-                first_in_state = false;
-            }
+        } else
+        {
+            start_state_timer(5000);
         }
         break;
 
@@ -346,7 +360,7 @@ void App_Run (void)
         data = wrong;
         status = 0;
         mode = COMPLETE;
-        
+
         /* Hold error for 1 second; evaluate remaining attempts */
         if(timer_finished())
         {
@@ -358,12 +372,9 @@ void App_Run (void)
                 state = ASKING_ID;        /* Lockout: reset to start */
                 id_counter = 0;
             }
-        } else {
-            if(!timer_counting() || first_in_state == true)
-            {
-                start_timer_ms(1000);
-                first_in_state = false;
-            }
+        } else
+        {
+            start_state_timer(1000);
         }
         break;
 
@@ -379,47 +390,66 @@ void App_Run (void)
 
     /* State: System Administration Menu Sub-Tree */
     case ADMIN_MODE:
-        if(admin_sub_mode == 0)
+        switch(admin_sub_mode)
         {
+        /* Menu option: View user count header ("Cant") */
+        case ADMIN_SUB_CANT:
             length = 4;
-            data = cant; /* Display "Cant" option */
+            data = cant;
             status = SECOND_AND_THIRD_LED;
             mode = COMPLETE;
-        } else if (admin_sub_mode == 1)
-        {
+            break;
+
+        /* Menu option: View user list header ("Id's") */
+        case ADMIN_SUB_IDS:
             length = 4;
-            data = ids;  /* Display "Id's" option */
+            data = ids;
             status = SECOND_AND_THIRD_LED;
             mode = COMPLETE;
-        } else if(admin_sub_mode == 2)
-        {
+            break;
+
+        /* Menu option: Add new user header ("add") */
+        case ADMIN_SUB_ADD:
             length = 3;
-            data = add;  /* Display "add" option */
+            data = add;
             status = SECOND_AND_THIRD_LED;
             mode = COMPLETE;
-        } else if(admin_sub_mode == 3)
-        {
+            break;
+
+        /* Menu option: Delete user header ("dlt") */
+        case ADMIN_SUB_DLT:
             length = 3;
-            data = dlt;  /* Display "dlt" option */
+            data = dlt;
             status = SECOND_AND_THIRD_LED;
             mode = COMPLETE;
-        } else if(admin_sub_mode == 4)
-        {
+            break;
+
+        /* Menu option: Exit menu header ("EXIt") */
+        case ADMIN_SUB_EXIT:
             length = 4;
-            data = exit; /* Display "EXIt" option */
+            data = exit_msg;
             status = SECOND_AND_THIRD_LED;
             mode = COMPLETE;
-        } else if(admin_sub_mode == 5)
-        {
+            break;
+
+        /* Sub-screen: Display current user quantity numerical value */
+        case ADMIN_SUB_SHOW_CANT:
             length = 1;
-            data = &users_cant; /* Display current user quantity value */
+            data = &users_cant;
             status = SECOND_AND_THIRD_LED;
             mode = COMPLETE;
-        } else if(admin_sub_mode == 6 || admin_sub_mode == 7)
-        {
-            length = 0; /* Sub-modes for viewing or deleting specific user IDs */
+            break;
+
+        /* Sub-screens: Select user ID to view details or delete */
+        case ADMIN_SUB_SELECT_ID:
+        case ADMIN_SUB_DELETE_ID:
+            length = 0;
             status = SECOND_AND_THIRD_LED;
             mode = EDITING;
+            break;
+
+        default:
+            break;
         }
         break;
 
@@ -428,17 +458,17 @@ void App_Run (void)
     }
 
     /* Output updated state details to display hardware */
-    print(data, length , selection,
-            mode, private, row, status);
+    print(data, length, selection, mode, private, row, status);
 
     /* =========================================================================
      * CARD READER PROCESSING
      * ========================================================================= */
     static track2_card_t card;
-    if(state == WAITING_ID  && data_ready())
+    if(state == WAITING_ID && data_ready())
     {
         /* Decode swiped card track 2 data */
-        if(card_decode_track2(get_data(), get_data_length(), &card)){
+        if(card_decode_track2(get_data(), get_data_length(), &card))
+        {
             if(card.pan_length >= 8)
             {
                 /* Extract first 8 PAN digits to form ID */
@@ -447,7 +477,7 @@ void App_Run (void)
                     id[i] = card.pan[i];
                     id_counter = 8;
                 }
-                
+
                 /* Validate extracted ID against registered users */
                 if(checkId())
                 {
@@ -480,14 +510,13 @@ void App_Run (void)
             changeBrightness(encoderDir());
         } else if(state == ADMIN_MODE)
         {
-            if(admin_sub_mode < 5)
+            if(admin_sub_mode < ADMIN_SUB_SHOW_CANT)
             {
                 adminMenu(encoderDir()); /* Scroll main admin menu options */
-            } else if(admin_sub_mode == 6 || admin_sub_mode == 7)
+            } else if(admin_sub_mode == ADMIN_SUB_SELECT_ID || admin_sub_mode == ADMIN_SUB_DELETE_ID)
             {
                 changeIdMenuAdmin(encoderDir()); /* Scroll user ID list in admin mode */
             }
-
         }
     }
 
@@ -500,7 +529,7 @@ void App_Run (void)
         if(!button_pressed_flag)
         {
             button_pressed_flag = 1; /* Set edge flag */
-            
+
             if(state == WAITING_ID || state == WAITING_PASSWORD || state == CHANGING_PASSWORD)
             {
                 selectionEntered();
@@ -519,62 +548,60 @@ void App_Run (void)
                     row = 0;
                     first_in_state = true;
                 }
-
             } else if(state == BRIGHTNESS)
             {
                 state = prev_state;
                 first_in_state = true;
             } else if(state == ADMIN_MODE)
             {
-                /* Admin option selections */
-                if(admin_sub_mode == 0)
+                switch(admin_sub_mode)
                 {
-                    admin_sub_mode = 5; /* Open user count sub-screen */
-                } else if(admin_sub_mode == 1)
-                {
-                    admin_sub_mode = 6; /* Open ID list selection sub-screen */
-                    if(users_cant != 0)
-                    {
-                        selection = 1;
-                    } else
-                    {
-                        selection = E;
-                    }
-                } else if(admin_sub_mode == 2){
-                    adding_user = true; /* Begin new user addition process */
-                    id_counter = 0;
-                    password_counter = 0;
-                    selection = 0;
-                    state = ASKING_ID;
-                } else if(admin_sub_mode == 3)
-                {
-                    admin_sub_mode = 7; /* Open user deletion sub-screen */
-                    if(users_cant != 0)
-                    {
-                        selection = 1;
-                    } else
-                    {
-                        selection = E;
-                    }
+                /* Action 'Cant': Open screen displaying user quantity */
+                case ADMIN_SUB_CANT:
+                    admin_sub_mode = ADMIN_SUB_SHOW_CANT;
+                    break;
 
-                } else if(admin_sub_mode == 4)
-                {
-                    /* Exit admin menu back to normal operation */
+                /* Action 'Id's': Enter ID list selection mode */
+                case ADMIN_SUB_IDS:
+                    admin_sub_mode = ADMIN_SUB_SELECT_ID;
+                    selection = (users_cant != 0) ? 1 : E;
+                    break;
+
+                /* Action 'add': Switch to new user creation input sequence */
+                case ADMIN_SUB_ADD:
+                    adding_user = true;
                     id_counter = 0;
                     password_counter = 0;
                     selection = 0;
                     state = ASKING_ID;
-                }else if(admin_sub_mode == 5)
-                {
-                    admin_sub_mode = 0; /* Return to main admin menu */
-                }else if(admin_sub_mode == 6)
-                {
+                    break;
+
+                /* Action 'dlt': Enter user deletion selection mode */
+                case ADMIN_SUB_DLT:
+                    admin_sub_mode = ADMIN_SUB_DELETE_ID;
+                    selection = (users_cant != 0) ? 1 : E;
+                    break;
+
+                /* Action 'EXIt': Exit admin mode back to main ID screen */
+                case ADMIN_SUB_EXIT:
+                    id_counter = 0;
+                    password_counter = 0;
+                    selection = 0;
+                    state = ASKING_ID;
+                    break;
+
+                /* Action in quantity screen: Return to top-level admin menu */
+                case ADMIN_SUB_SHOW_CANT:
+                    admin_sub_mode = ADMIN_SUB_CANT;
+                    break;
+
+                /* Action in ID list: Show full ID or exit if 'E' was selected */
+                case ADMIN_SUB_SELECT_ID:
                     if(selection == E)
                     {
-                        admin_sub_mode = 1; /* Cancel ID view */
+                        admin_sub_mode = ADMIN_SUB_IDS;
                     } else
                     {
-                        /* Load selected user ID into display buffer */
                         for(int i = 0; i < ID_LENGTH; i++)
                         {
                             id[i] = users[selection].id[i];
@@ -583,30 +610,33 @@ void App_Run (void)
                         state = SHOWING_ID;
                         prev_state = ADMIN_MODE;
                     }
+                    break;
 
-                } else if (admin_sub_mode == 7)
-                {
+                /* Action in deletion list: Remove selected user and shift array */
+                case ADMIN_SUB_DELETE_ID:
                     if(selection == E)
                     {
-                        admin_sub_mode = 3; /* Cancel delete */
+                        admin_sub_mode = ADMIN_SUB_DLT;
                     } else
                     {
-                        /* Remove selected user by shifting array left */
                         for(int i = selection; i < users_cant; i++)
                         {
                             users[i] = users[i+1];
                         }
                         users_cant--;
-                        admin_sub_mode = 3;
+                        admin_sub_mode = ADMIN_SUB_DLT;
                     }
+                    break;
+
+                default:
+                    break;
                 }
             }
         }
     } else
     {
-        button_pressed_flag = 0; /* Clear edge flag on button release */
+        button_pressed_flag = 0;
     }
-
 }
 
 
@@ -615,6 +645,20 @@ void App_Run (void)
                         LOCAL FUNCTION DEFINITIONS
  *******************************************************************************
  ******************************************************************************/
+
+/**
+ * @brief Helper function to start state timeouts cleanly without code duplication.
+ * @param ms Delay duration in milliseconds.
+ */
+static void start_state_timer(uint32_t ms)
+{
+    if(!timer_counting() || first_in_state == true)
+    {
+        start_timer_ms(ms);
+        first_in_state = false;
+    }
+}
+
 
 /**
  * @brief Updates the menu selection index based on rotary encoder direction and state.
@@ -746,7 +790,7 @@ void selectionEntered(void)
         }
     } 
     /* Selection 10: Backspace (delete last character) */
-    else if(selection == 10)
+    else if(selection == KEY_BACKSPACE)
     {
         if((*counter) != 0)
         {
@@ -754,19 +798,19 @@ void selectionEntered(void)
         }
     } 
     /* Selection 11: Clear whole input buffer */
-    else if(selection == 11)
+    else if(selection == KEY_CLEAR)
     {
         (*counter) = 0;
     } 
     /* Selection 12: Open brightness configuration screen */
-    else if(selection == 12)
+    else if(selection == KEY_BRIGHTNESS)
     {
         prev_state = state;
         state = BRIGHTNESS;
         first_in_state = true;
     }
     /* Selection 13: Initiate password change sequence */
-    else if(selection == 13)
+    else if(selection == KEY_CHANGE_PASS)
     {
         if(state == WAITING_PASSWORD)
         {
@@ -785,7 +829,7 @@ void selectionEntered(void)
         }
     }
     /* Selection 14: Cancel input and return to ID prompt */
-    else if(selection == 14)
+    else if(selection == KEY_CANCEL)
     {
         id_counter = 0;
         password_counter = 0;
@@ -793,7 +837,7 @@ void selectionEntered(void)
         first_in_state = true;
     } 
     /* Selection 15: Enter / Confirm input submission */
-    else if(selection == 15)
+    else if(selection == KEY_ENTER)
     {
         if(state == WAITING_ID)
         {
@@ -836,7 +880,7 @@ void selectionEntered(void)
                     state = OPENING;
                     id_counter = 0;
                     password_counter = 0;
-                    admin_sub_mode = 0;
+                    admin_sub_mode = ADMIN_SUB_CANT;
                 } else
                 {
                     /* Standard user access granted */
@@ -875,7 +919,7 @@ void selectionEntered(void)
             selection = 0;
         } else
         {
-            selection = 15;
+            selection = KEY_ENTER;
         }
     }
 }
@@ -929,24 +973,12 @@ bool matchPassword(void)
  */
 void changeBrightness(bool dir)
 {
-    if(dir == IS_RIGHT)
+    if((dir == IS_RIGHT) && (brightness < HUNDRED_PERCENT_BRIGTHNESS))
     {
-        if(brightness == HUNDRED_PERCENT_BRIGTHNESS)
-        {
-            brightness = HUNDRED_PERCENT_BRIGTHNESS;
-        } else
-        {
-            brightness++;
-        }
-    } else
+        brightness++;
+    } else if((dir != IS_RIGHT) && (brightness > TEN_PERCENT_BRIGTHNESS))
     {
-        if(brightness == TEN_PERCENT_BRIGTHNESS)
-        {
-            brightness = TEN_PERCENT_BRIGTHNESS;
-        } else
-        {
-            brightness--;
-        }
+        brightness--;
     }
 }
 
@@ -958,24 +990,21 @@ void adminMenu(bool dir)
 {
     if(dir == IS_RIGHT)
     {
-        if(admin_sub_mode == 4)
+        if(admin_sub_mode == ADMIN_SUB_EXIT)
         {
-            admin_sub_mode = 0;
+            admin_sub_mode = ADMIN_SUB_CANT;
         } else
         {
             admin_sub_mode++;
         }
     } else
     {
-        if(admin_sub_mode == 0)
+        if(admin_sub_mode == ADMIN_SUB_CANT)
         {
-            admin_sub_mode = 4;
+            admin_sub_mode = ADMIN_SUB_EXIT;
         } else
         {
             admin_sub_mode--;
         }
     }
 }
-
-/*******************************************************************************
- ******************************************************************************/
