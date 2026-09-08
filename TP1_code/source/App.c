@@ -180,7 +180,7 @@ static uint8_t cant[4]         = {C, a, n, t};         /**< Display: "Cant" (Use
 static uint8_t ids[4]          = {I, d, APOSTROFE,S};  /**< Display: "Id's" (View IDs menu item) */
 static uint8_t add[3]          = {a, d, d};            /**< Display: "add" (Add user menu item) */
 static uint8_t dlt[3]          = {d, l, t};            /**< Display: "dlt" (Delete user menu item) */
-static uint8_t exit[4]         = {E, X, I, t};         /**< Display: "EXIt" (Exit admin menu item) */
+static uint8_t exit_msg[4]         = {E, X, I, t};         /**< Display: "EXIt" (Exit admin menu item) */
 
 
 /*******************************************************************************
@@ -958,13 +958,15 @@ bool checkId(void)
  */
 bool matchPassword(void)
 {
-    uint8_t m = 0;
-    while((password[m] == users[active_user].password[m]) && (m < users[active_user].password_length))
-    {
-        m++;
+    if (password_counter != users[active_user].password_length) {
+        return false;
     }
-
-    return m == users[active_user].password_length;
+    for (uint8_t m = 0; m < password_counter; m++) {
+        if (password[m] != users[active_user].password[m]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /**
