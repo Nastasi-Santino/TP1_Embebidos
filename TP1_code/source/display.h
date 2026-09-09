@@ -73,6 +73,7 @@ enum
 #define KEY_ENTER            15  /**< Action: Confirm/Submit input */
 
 
+#define b		   12  /**< Map symbol 'b' to lookup table index 12 */
 #define C          13  /**< Map symbol 'C' to lookup table index 13 */
 #define G          6   /**< Map symbol 'G' to lookup table index 6 */
 #define o          17  /**< Map symbol 'o' to lookup table index 17 */

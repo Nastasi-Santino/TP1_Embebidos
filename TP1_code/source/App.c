@@ -105,6 +105,7 @@ enum
     WAITING_PASSWORD,   /**< Processing/awaiting password submission */
     OPENING,            /**< Success state: Access granted, opening door/lock */
     WRONG_PASSWORD,     /**< Error state: Invalid password entered */
+	BLOCKED,			/**< Invalid password entered 3 times, blocked ID*/
     CHANGING_PASSWORD,  /**< Password configuration mode */
     BRIGHTNESS,         /**< Display brightness adjustment screen */
     ADMIN_MODE          /**< System administration menu screen */
@@ -134,6 +135,8 @@ static user_t users[USERS_IN_SYSTEM_MAX];    /**< System database of registered 
 static uint8_t users_cant;                   /**< Current count of registered users in system (without Admin) */
 static uint8_t active_user;                  /**< Index of currently identified user */
 static uint8_t password_tries;               /**< Consecutive failed password attempt counter */
+static uint8_t blocked[USERS_IN_SYSTEM_MAX]; /**< Array with blocked users */
+static uint8_t blockedCounter = 0;			 /**< Blocked users counter*/
 static bool first_in_state = true;           /**< Flag indicating first entry into an FSM state */
 static bool adding_user = false;             /**< Flag indicating admin user creation mode */
 
@@ -167,6 +170,7 @@ static uint8_t wrong[3]        = {X, X, X};            /**< Display: "XXX" (Acce
 static uint8_t id_msg[4]       = {GUION, I, d, GUION}; /**< Display: "-Id-" (ID prompt) */
 static uint8_t id_nF[4]        = {I, d, n, F};         /**< Display: "IdnF" (ID not found) */
 static uint8_t password_msg[4] = {P, S, S, d};         /**< Display: "PSSd" (Password prompt) */
+static uint8_t bad[3]		   = {b, a, d};			   /**< Display: "bad"  (Blocked ID) */
 static uint8_t cant[4]         = {C, a, n, t};         /**< Display: "Cant" (User count menu item) */
 static uint8_t ids[4]          = {I, d, APOSTROFE,S};  /**< Display: "Id's" (View IDs menu item) */
 static uint8_t add[3]          = {a, d, d};            /**< Display: "add" (Add user menu item) */
@@ -360,7 +364,10 @@ void App_Run (void)
                 state = WAITING_PASSWORD; /* Allow retry */
             } else
             {
-                state = ASKING_ID;        /* Lockout: reset to start */
+                state = BLOCKED;        /* Lockout: reset to start */
+                first_in_state = true;
+                blocked[blockedCounter] = active_user;
+                blockedCounter++;
                 id_counter = 0;
                 password_tries = 0;
             }
@@ -369,6 +376,25 @@ void App_Run (void)
             start_state_timer(1000);
         }
         break;
+
+    /* State: Access denied, blocked ID*/
+    case BLOCKED:
+    	length = 3;
+    	data = bad;
+    	status = 0;
+    	mode = COMPLETE;
+        /* Hold for 2 second*/
+        if(timer_finished())
+        {
+        	state = ASKING_ID;
+        	first_in_state = true;
+        	id_counter = 0;
+        } else
+        {
+            start_state_timer(2000);
+        }
+        break;
+    	break;
 
     /* State: Display brightness configuration mode */
     case BRIGHTNESS:
@@ -471,13 +497,33 @@ void App_Run (void)
                 }
 
                 /* Validate extracted ID against registered users */
-                if(checkId())
+                if(checkId() || adding_user)
                 {
-                    state = SHOWING_ID;
+                	bool is_blocked = false;
+                	for(int i = 0; i < blockedCounter; i++)
+                	{
+                		if(blocked[i] == active_user)
+                		{
+                			is_blocked = true;
+                			break;
+                		}
+                	}
+
+
+                	if(is_blocked)
+                	{
+                		state = BLOCKED;
+                		first_in_state = true;
+                	} else
+                	{
+                		state = SHOWING_ID;
+                		first_in_state = true;
+                	}
                 } else
                 {
                     id_counter = 0;
                     state = ID_NOT_FOUND;
+                    first_in_state = true;
                 }
             }
         }
@@ -567,6 +613,7 @@ void App_Run (void)
                     password_counter = 0;
                     selection = 0;
                     state = ASKING_ID;
+                    first_in_state = true;
                     break;
 
                 /* Action 'dlt': Enter user deletion selection mode */
@@ -581,6 +628,7 @@ void App_Run (void)
                     password_counter = 0;
                     selection = 0;
                     state = ASKING_ID;
+                    first_in_state = true;
                     break;
 
                 /* Action in quantity screen: Return to top-level admin menu */
@@ -601,6 +649,7 @@ void App_Run (void)
                         }
                         id_counter = ID_LENGTH;
                         state = SHOWING_ID;
+                        first_in_state = true;
                         prev_state = ADMIN_MODE;
                     }
                     break;
@@ -837,8 +886,27 @@ void selectionEntered(void)
             /* Validate entered ID or accept if admin is adding a new user */
             if(checkId() || adding_user)
             {
-                state = SHOWING_ID;
-                first_in_state = true;
+            	bool is_blocked = false;
+            	for(int i = 0; i < blockedCounter; i++)
+            	{
+            		if(blocked[i] == active_user)
+            		{
+            			is_blocked = true;
+            			break;
+            		}
+            	}
+
+
+            	if(is_blocked)
+            	{
+            		state = BLOCKED;
+            		first_in_state = true;
+            	} else
+            	{
+            		state = SHOWING_ID;
+            		first_in_state = true;
+            	}
+
             } else
             {
                 id_counter = 0;
