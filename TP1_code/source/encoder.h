@@ -5,7 +5,8 @@
  * INCLUDE HEADER FILES
  ******************************************************************************/
 
-#include "gpio.h"
+#include <stdint.h>
+#include <stdbool.h>
 
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE

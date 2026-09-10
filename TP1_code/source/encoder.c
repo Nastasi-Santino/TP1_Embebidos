@@ -1,4 +1,5 @@
 #include "encoder.h"
+#include "gpio.h"
 #include "pisr.h"
 
 #define PIN_SW_ENCODER	PORTNUM2PIN(PC, 11)

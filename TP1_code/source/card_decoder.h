@@ -7,31 +7,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "card_reader.h"
 
-/*******************************************************************************
- * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
- ******************************************************************************/
-#define TRACK2_MAX_PAN_LENGTH          19U
-#define TRACK2_DATE_LENGTH              4U
-#define TRACK2_SERVICE_CODE_LENGTH      3U
-
-#define TRACK2_MAX_ADDITIONAL_LENGTH   28U
-
-#define TRACK2_MAX_CHARACTERS          40U
-
-/*******************************************************************************
- * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
- ******************************************************************************/
-
-typedef struct
-{
-    uint8_t pan[TRACK2_MAX_PAN_LENGTH];
-    uint8_t pan_length;
-    uint8_t expiration_date[TRACK2_DATE_LENGTH];
-    uint8_t service_code[TRACK2_SERVICE_CODE_LENGTH];
-    uint8_t additional_data[TRACK2_MAX_ADDITIONAL_LENGTH];
-    uint8_t additional_length;
-} track2_card_t;
 
 /*******************************************************************************
  * FUNCTION PROTOTYPES WITH GLOBAL SCOPE

@@ -10,9 +10,9 @@
 
 #include "card_reader.h"  /* Magnetic card reader driver */
 #include "encoder.h"      /* Rotary encoder driver for UI navigation */
-#include "card_decoder.h" /* Parser for raw card data */
 #include "display.h"      /* Display driver interface */
 #include "timer.h"        /* System time management and delays */
+#include "flash_storage.h"
 
 
 /*******************************************************************************
@@ -23,7 +23,6 @@
 #define ID_LENGTH             8  /**< Required digit length for user IDs */
 #define PASSWORD_MIN_LENGHT   4  /**< Minimum password length limit */
 #define PASSWORD_MAX_LENGHT   5  /**< Maximum password length limit */
-#define USERS_IN_SYSTEM_MAX   10 /**< Total registered user capacity limit */
 #define MAX_PASSWORD_TRIES    3  /**< Max failed login attempts allowed before lockout */
 
 /*******************************************************************************
@@ -81,16 +80,6 @@ static void start_state_timer(uint32_t ms);
 /*******************************************************************************
  * PRIVATE DATA TYPES AND ENUMERATIONS
  ******************************************************************************/
-
-/**
- * @brief Represents a single user profile stored in system memory.
- */
-typedef struct
-{
-    uint8_t id[8];          /**< Array storing user ID digits */
-    uint8_t password[5];    /**< Array storing user password digits */
-    uint8_t password_length;/**< Actual length of user's password (4 or 5)*/
-} user_t;
 
 /**
  * @brief System Finite State Machine states.
@@ -199,26 +188,36 @@ void App_Init (void)
     state = ASKING_ID;
     brightness = HUNDRED_PERCENT_BRIGTHNESS;
 
-    /* Populate default user database (ID, Password, Password Length) */
-    users[0] = (user_t){
-        .id = {6, 0, 3, 1, 6, 7, 0, 9},
-        .password = {0, 0, 0, 0, 0},
-        .password_length = 5
-    };
+    if(!loadUsersFromFlash(users, &users_cant))
+    {
+    	/* Populate default user database (ID, Password, Password Length) */
+    	    users[0] = (user_t){
+    	        .id = {6, 0, 3, 1, 6, 7, 0, 9},
+    	        .password = {0, 0, 0, 0, 0},
+    	        .password_length = 5
+    	    };
 
-    users[1] = (user_t){
-        .id = {4, 5, 4, 8, 3, 2, 0, 0},
-        .password = {1, 0, 2, 2, 9},
-        .password_length = 5
-    };
+    	    users[1] = (user_t){
+    	        .id = {4, 5, 4, 8, 3, 2, 0, 0},
+    	        .password = {1, 0, 2, 2, 9},
+    	        .password_length = 5
+    	    };
 
-    users[2] = (user_t){
-        .id = {4, 0, 6, 6, 6, 3, 4, 1},
-        .password = {0, 4, 2, 8},
-        .password_length = 4
-    };
+    	    users[2] = (user_t){
+    	        .id = {4, 0, 6, 6, 6, 3, 4, 1},
+    	        .password = {0, 4, 2, 8},
+    	        .password_length = 4
+    	    };
 
-    users_cant = 2; /* Initial user count */
+    	    users_cant = 2; /* Initial user count */
+
+    	    bool flash_ok = saveUsersToFlash(users, users_cant);
+    	    if(flash_ok)
+    	    {
+    	    	flash_ok = false;
+    	    }
+    }
+
 }
 
 
@@ -485,7 +484,7 @@ void App_Run (void)
     if(state == WAITING_ID && data_ready())
     {
         /* Decode swiped card track 2 data */
-        if(card_decode_track2(get_data(), get_data_length(), &card))
+        if(card_decode(&card))
         {
             if(card.pan_length >= 8)
             {
@@ -666,6 +665,8 @@ void App_Run (void)
                             users[i] = users[i+1];
                         }
                         users_cant--;
+
+                        saveUsersToFlash(users, users_cant);
                         admin_sub_mode = ADMIN_SUB_DLT;
                     }
                     break;
@@ -937,6 +938,9 @@ void selectionEntered(void)
                     }
                     users[users_cant + 1].password_length = password_counter;
                     users_cant++;
+
+                    saveUsersToFlash(users, users_cant);
+
                     adding_user = false;
                     state = OPENING;
                     first_in_state = true;

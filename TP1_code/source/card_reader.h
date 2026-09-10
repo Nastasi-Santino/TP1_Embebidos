@@ -5,7 +5,33 @@
  * INCLUDE HEADER FILES
  ******************************************************************************/
 
-#include "gpio.h"  /**< General Purpose Input/Output driver interface */
+#include <stdint.h>
+#include <stdbool.h>
+
+/*******************************************************************************
+ * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
+ ******************************************************************************/
+#define TRACK2_MAX_PAN_LENGTH          19U
+#define TRACK2_DATE_LENGTH              4U
+#define TRACK2_SERVICE_CODE_LENGTH      3U
+
+#define TRACK2_MAX_ADDITIONAL_LENGTH   28U
+
+#define TRACK2_MAX_CHARACTERS          40U
+
+/*******************************************************************************
+ * ENUMERATIONS AND STRUCTURES AND TYPEDEFS
+ ******************************************************************************/
+
+typedef struct
+{
+    uint8_t pan[TRACK2_MAX_PAN_LENGTH];
+    uint8_t pan_length;
+    uint8_t expiration_date[TRACK2_DATE_LENGTH];
+    uint8_t service_code[TRACK2_SERVICE_CODE_LENGTH];
+    uint8_t additional_data[TRACK2_MAX_ADDITIONAL_LENGTH];
+    uint8_t additional_length;
+} track2_card_t;
 
 /*******************************************************************************
  * FUNCTION PROTOTYPES WITH GLOBAL SCOPE
@@ -25,15 +51,10 @@ bool card_reader_INIT(void);
 bool data_ready(void);
 
 /**
- * @brief Retrieves the total count of bits captured during the last card swipe.
- * @return Number of recorded bits in the data buffer.
+ * @brief Decodifica y valida una trama.
+ * @param card: Estructura donde se almacenan los datos decodificados.
+ * @return Validacion de protocolo.
  */
-uint8_t get_data_length(void);
-
-/**
- * @brief Provides a read-only pointer to the raw captured card bit buffer.
- * @return Pointer to volatile array containing captured bit state values.
- */
-const volatile uint8_t * get_data(void);
+bool card_decode(track2_card_t *card);
 
 #endif /* CARD_READER_H_ */

@@ -2,7 +2,9 @@
  * INCLUDE HEADER FILES
  ******************************************************************************/
 
+#include "gpio.h"  /**< General Purpose Input/Output driver interface */
 #include "card_reader.h"
+#include "card_decoder.h"
 
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
@@ -85,23 +87,12 @@ bool data_ready(void)
     return false;
 }
 
-/**
- * @brief Retrieves the total number of bits collected during the last swipe.
- * @return Number of recorded bits in the payload buffer.
- */
-uint8_t get_data_length(void)
+bool card_decode(track2_card_t *card)
 {
-    return bitCount;
+	return card_decode_track2(dataBuffer, bitCount, card);
 }
 
-/**
- * @brief Provides access to the raw sampled bit buffer.
- * @return Read-only pointer to volatile buffer containing captured bits.
- */
-const volatile uint8_t * get_data(void)
-{
-    return dataBuffer;
-}
+
 
 /*******************************************************************************
  * INTERRUPT SERVICE ROUTINES & LOCAL FUNCTIONS
