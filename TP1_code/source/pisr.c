@@ -11,6 +11,14 @@
 #include "pisr.h"
 #include "hardware.h"
 
+#define DEBUG_PISR
+
+#ifdef DEBUG_PISR
+// Test point to measure pisr time
+#include "gpio.h"
+#include "board.h"
+#endif
+
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
@@ -72,6 +80,11 @@ bool pisrRegister (pisr_callback_t fun, unsigned int period)
         SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk |
                         SysTick_CTRL_TICKINT_Msk   |
                         SysTick_CTRL_ENABLE_Msk;
+
+#ifdef DEBUG_PISR
+        gpioMode(PIN_TEST_POINT_PISR, OUTPUT);
+        gpioWrite(PIN_TEST_POINT_PISR, LOW);
+#endif
     }
     
     /* Store callback entry parameters in active array */
@@ -94,6 +107,9 @@ bool pisrRegister (pisr_callback_t fun, unsigned int period)
  */
 void SysTick_Handler (void)
 {
+#ifdef DEBUG_PISR
+	gpioWrite(PIN_TEST_POINT_PISR, HIGH);
+#endif
     for(int i = 0; i < pisr_counter; i++)
     {
         pisr[i].count++;
@@ -104,4 +120,7 @@ void SysTick_Handler (void)
             pisr[i].count = 0; /* Reset tick count after execution */
         }
     }
+#ifdef DEBUG_PISR
+    gpioWrite(PIN_TEST_POINT_PISR, LOW);
+#endif
 }

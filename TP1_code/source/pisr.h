@@ -18,7 +18,7 @@
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
 
-#define PISR_TICK_US        10U  /**< Base SysTick periodic interrupt resolution in microseconds */
+#define PISR_TICK_US        50U  /**< Base SysTick periodic interrupt resolution in microseconds */
 
 #define PISR_CANT           8    /**< Maximum allowed number of registered periodic callbacks */
 

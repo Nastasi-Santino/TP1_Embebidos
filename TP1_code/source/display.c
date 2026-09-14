@@ -10,7 +10,7 @@
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
 
-#define REFRESH_PERIOD_US   (100000U / REFRESH_RATE_HZ)         /**< Display refresh period in microseconds */
+#define REFRESH_PERIOD_US   (500000U / REFRESH_RATE_HZ)         /**< Display refresh period in microseconds */
 #define COLUMN_PERIOD_US    (REFRESH_PERIOD_US / DISPLAY_COUNT)  /**< Multiplexing time slot per display digit column */
 
 #define COLUMN_PERIOD_TICKS PISR_US_TO_TICKS(COLUMN_PERIOD_US)  /**< Microsecond-to-timer-ticks conversion */

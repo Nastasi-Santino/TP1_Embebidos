@@ -5,15 +5,11 @@
 #include "serial_out.h"
 #include "gpio.h"
 #include "pisr.h"
+#include "board.h"
 
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
-
-#define PIN_SERIAL      PORTNUM2PIN(PB, 11) /**< Serial Data input pin (PB11) */
-#define PIN_SCLK        PORTNUM2PIN(PB, 2)  /**< Shift Register Clock pin (PB2) */
-#define PIN_RCLK        PORTNUM2PIN(PB, 3)  /**< Storage Register / Latch Clock pin (PB3) */
-#define PIN_OE          PORTNUM2PIN(PB, 10) /**< Output Enable pin (Active Low) (PB10) */
 
 #define SCLK_TICKS      PISR_US_TO_TICKS(SER_CLK_PERIOD_US) /**< Clock pulse period in timer ticks */
 

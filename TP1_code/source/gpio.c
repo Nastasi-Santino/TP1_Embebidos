@@ -10,6 +10,12 @@
 #include "gpio.h"
 #include "hardware.h"
 
+#define DEBUG_GPIO
+
+#ifdef DEBUG_GPIO
+#include "board.h"
+#endif
+
 /*******************************************************************************
  * STATIC VARIABLES AND CONST VARIABLES WITH FILE LEVEL SCOPE
  ******************************************************************************/
@@ -76,6 +82,16 @@ void gpioMode (pin_t pin, uint8_t mode)
  */
 bool gpioIRQ(pin_t pin, uint8_t irqMode, pinIrqFun_t irqFun)
 {
+#ifdef DEBUG_GPIO
+    static bool yaInit = false;
+    if (!yaInit)
+    {
+    	yaInit = true;
+    	gpioMode(PIN_TEST_POINT_GPIO, OUTPUT);
+    	gpioWrite(PIN_TEST_POINT_GPIO, LOW);
+    }
+#endif
+
     if(irqFun == (pinIrqFun_t)0)
         return 0;
 
@@ -201,29 +217,59 @@ static void gpioPortIRQHandler(uint8_t portNum)
 /** @brief Port A hardware interrupt service routine. */
 void PORTA_IRQHandler(void)
 {
+#ifdef DEBUG_GPIO
+	gpioWrite(PIN_TEST_POINT_GPIO, HIGH);
+#endif
     gpioPortIRQHandler(PA);
+#ifdef DEBUG_GPIO
+    gpioWrite(PIN_TEST_POINT_GPIO, LOW);
+#endif
 }
 
 /** @brief Port B hardware interrupt service routine. */
 void PORTB_IRQHandler(void)
 {
+#ifdef DEBUG_GPIO
+	gpioWrite(PIN_TEST_POINT_GPIO, HIGH);
+#endif
     gpioPortIRQHandler(PB);
+#ifdef DEBUG_GPIO
+    gpioWrite(PIN_TEST_POINT_GPIO, LOW);
+#endif
 }
 
 /** @brief Port C hardware interrupt service routine. */
 void PORTC_IRQHandler(void)
 {
+#ifdef DEBUG_GPIO
+	gpioWrite(PIN_TEST_POINT_GPIO, HIGH);
+#endif
     gpioPortIRQHandler(PC);
+#ifdef DEBUG_GPIO
+    gpioWrite(PIN_TEST_POINT_GPIO, LOW);
+#endif
 }
 
 /** @brief Port D hardware interrupt service routine. */
 void PORTD_IRQHandler(void)
 {
+#ifdef DEBUG_GPIO
+	gpioWrite(PIN_TEST_POINT_GPIO, HIGH);
+#endif
     gpioPortIRQHandler(PD);
+#ifdef DEBUG_GPIO
+    gpioWrite(PIN_TEST_POINT_GPIO, LOW);
+#endif
 }
 
 /** @brief Port E hardware interrupt service routine. */
 void PORTE_IRQHandler(void)
 {
+#ifdef DEBUG_GPIO
+	gpioWrite(PIN_TEST_POINT_GPIO, HIGH);
+#endif
     gpioPortIRQHandler(PE);
+#ifdef DEBUG_GPIO
+    gpioWrite(PIN_TEST_POINT_GPIO, LOW);
+#endif
 }

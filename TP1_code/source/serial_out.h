@@ -12,7 +12,7 @@
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
 
-#define SER_CLK_PERIOD_US   10U  /**< Serial software clock toggle period in microseconds */
+#define SER_CLK_PERIOD_US   50U  /**< Serial software clock toggle period in microseconds */
 
 /*******************************************************************************
  * FUNCTION PROTOTYPES WITH GLOBAL SCOPE

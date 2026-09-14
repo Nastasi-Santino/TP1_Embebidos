@@ -10,14 +10,11 @@
 #include "encoder.h"
 #include "gpio.h"
 #include "pisr.h"
+#include "board.h"
 
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
-
-#define PIN_SW_ENCODER          PORTNUM2PIN(PC, 11) /**< Push-button switch input pin (PC11) */
-#define PIN_A_ENCODER           PORTNUM2PIN(PB, 18) /**< Quadrature Channel A input pin (PB18) */
-#define PIN_B_ENCODER           PORTNUM2PIN(PC, 10) /**< Quadrature Channel B input pin (PC10) */
 
 #define BUTTON_PERIOD_MS        50U /**< Debounce polling interval for push-button in ms */
 #define ENCODER_PERIOD_MS       3U  /**< Debounce confirmation window for encoder pulses in ms */

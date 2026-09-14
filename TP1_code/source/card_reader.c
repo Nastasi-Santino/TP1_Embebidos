@@ -5,14 +5,11 @@
 #include "gpio.h"  /**< General Purpose Input/Output driver interface */
 #include "card_reader.h"
 #include "card_decoder.h"
+#include "board.h"
 
 /*******************************************************************************
  * CONSTANT AND MACRO DEFINITIONS USING #DEFINE
  ******************************************************************************/
-
-#define PIN_CR_ENABLE   PORTNUM2PIN(PD, 1) /**< Card reader Enable/Card-Present line (PTD1) */
-#define PIN_CR_CLOCK    PORTNUM2PIN(PD, 3) /**< Card reader Clock input line (PTD3) */
-#define PIN_CR_DATA     PORTNUM2PIN(PD, 2) /**< Card reader Active-Low Data input line (PTD2) */
 
 #define BUFFER_MAX_BITS 250                /**< Maximum capacity of incoming bit array buffer */
 

@@ -37,6 +37,38 @@
 #define SW_ACTIVE       LOW                 /**< Logic level detected when switch is pressed (Active Low) */
 #define SW_INPUT_TYPE   INPUT_PULLUP        /**< Input resistor configuration mode (Internal Pull-Up) */
 
+/* =========================================================================
+ * SERIAL_OUT PIN DEFINITIONS
+ * ========================================================================= */
+
+#define PIN_SERIAL      PORTNUM2PIN(PB, 11) /**< Serial Data input pin (PB11) */
+#define PIN_SCLK        PORTNUM2PIN(PB, 2)  /**< Shift Register Clock pin (PB2) */
+#define PIN_RCLK        PORTNUM2PIN(PB, 3)  /**< Storage Register / Latch Clock pin (PB3) */
+#define PIN_OE          PORTNUM2PIN(PB, 10) /**< Output Enable pin (Active Low) (PB10) */
+
+/* =========================================================================
+ * ENCODER PIN DEFINITIONS
+ * ========================================================================= */
+
+#define PIN_SW_ENCODER          PORTNUM2PIN(PC, 11) /**< Push-button switch input pin (PC11) */
+#define PIN_A_ENCODER           PORTNUM2PIN(PB, 18) /**< Quadrature Channel A input pin (PB18) */
+#define PIN_B_ENCODER           PORTNUM2PIN(PC, 10) /**< Quadrature Channel B input pin (PC10) */
+
+/* =========================================================================
+ * CARD_READER PIN DEFINITIONS
+ * ========================================================================= */
+
+#define PIN_CR_ENABLE   PORTNUM2PIN(PD, 1) /**< Card reader Enable/Card-Present line (PTD1) */
+#define PIN_CR_CLOCK    PORTNUM2PIN(PD, 3) /**< Card reader Clock input line (PTD3) */
+#define PIN_CR_DATA     PORTNUM2PIN(PD, 2) /**< Card reader Active-Low Data input line (PTD2) */
+
+/* =========================================================================
+ * TEST POINTS PIN DEFINITIONS
+ * ========================================================================= */
+
+#define	PIN_TEST_POINT_PISR PORTNUM2PIN(PB, 23)
+#define PIN_TEST_POINT_GPIO	PORTNUM2PIN(PC, 9)
+
 /*******************************************************************************
  ******************************************************************************/
 
